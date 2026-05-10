@@ -82,10 +82,10 @@ class DxCli(
         }
 
         val computation = requireNotNull(frontend.computation)
-        val typecheck = TypeChecker(TypeEnvironment()).infer(computation)
+        val diagnosticRenderer = DxDiagnosticRenderer(sourceText)
+        val typecheck = TypeChecker(TypeEnvironment(), frontend.sourceMap).infer(computation)
         if (!typecheck.isSuccess) {
-            err.println("type diagnostics:")
-            typecheck.diagnostics.forEach { err.println("  $it") }
+            diagnosticRenderer.renderType(typecheck.reports).forEach(err::println)
             return CompileAttempt.Failure(1)
         }
         val type = requireNotNull(typecheck.type)

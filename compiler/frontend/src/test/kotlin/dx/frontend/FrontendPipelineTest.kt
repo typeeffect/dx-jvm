@@ -102,6 +102,17 @@ class FrontendPipelineTest {
     }
 
     @Test
+    fun loweringPreservesSourceMapForTypeDiagnostics() {
+        val result = pipeline.compile(SourceId("type_error.dx"), "if 1 then \"then\" else \"else\"")
+
+        assertSuccess(result)
+        val typecheck = TypeChecker(TypeEnvironment(), result.sourceMap).infer(assertNotNull(result.computation))
+
+        assertEquals(1, typecheck.reports.single().source?.line)
+        assertEquals(4, typecheck.reports.single().source?.column)
+    }
+
+    @Test
     fun parsesIfWithBranchComputations() {
         val result = pipeline.compile(
             SourceId("if_block.dx"),

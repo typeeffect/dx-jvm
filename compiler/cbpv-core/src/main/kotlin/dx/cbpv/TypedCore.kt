@@ -3,6 +3,48 @@ package dx.cbpv
 typealias EffectName = String
 typealias OperationName = String
 
+data class CoreSourceSpan(
+    val fileName: String,
+    val startOffset: Int,
+    val endOffset: Int,
+    val line: Int,
+    val column: Int,
+)
+
+class TypedSourceMap(
+    private val computationSpans: Map<TypedComputation, CoreSourceSpan>,
+    private val valueSpans: Map<TypedValue, CoreSourceSpan>,
+) {
+    fun spanOf(computation: TypedComputation): CoreSourceSpan? = computationSpans[computation]
+
+    fun spanOf(value: TypedValue): CoreSourceSpan? = valueSpans[value]
+
+    companion object {
+        val Empty: TypedSourceMap = TypedSourceMap(emptyMap(), emptyMap())
+    }
+}
+
+class TypedSourceMapBuilder {
+    private val computationSpans = java.util.IdentityHashMap<TypedComputation, CoreSourceSpan>()
+    private val valueSpans = java.util.IdentityHashMap<TypedValue, CoreSourceSpan>()
+
+    fun put(computation: TypedComputation, span: CoreSourceSpan): TypedComputation {
+        computationSpans[computation] = span
+        return computation
+    }
+
+    fun put(value: TypedValue, span: CoreSourceSpan): TypedValue {
+        valueSpans[value] = span
+        return value
+    }
+
+    fun build(): TypedSourceMap =
+        TypedSourceMap(
+            computationSpans = java.util.IdentityHashMap(computationSpans),
+            valueSpans = java.util.IdentityHashMap(valueSpans),
+        )
+}
+
 sealed interface ValueType {
     data object UnitType : ValueType
     data object BoolType : ValueType
@@ -135,20 +177,29 @@ sealed interface TypeDiagnostic {
 data class TypeCheckResult(
     val type: ComputationType?,
     val diagnostics: List<TypeDiagnostic>,
+    val reports: List<TypeDiagnosticReport> = diagnostics.map { TypeDiagnosticReport(it, null) },
 ) {
     val isSuccess: Boolean get() = diagnostics.isEmpty() && type != null
 }
+
+data class TypeDiagnosticReport(
+    val diagnostic: TypeDiagnostic,
+    val source: CoreSourceSpan?,
+)
 
 private data class HandlerContext(
     val resumeValue: ValueType,
     val handlerResult: ValueType,
 )
 
-class TypeChecker(private val environment: TypeEnvironment) {
+class TypeChecker(
+    private val environment: TypeEnvironment,
+    private val sourceMap: TypedSourceMap = TypedSourceMap.Empty,
+) {
     fun infer(computation: TypedComputation): TypeCheckResult {
-        val diagnostics = mutableListOf<TypeDiagnostic>()
+        val diagnostics = TypeDiagnosticSink(sourceMap)
         val type = inferComputation(computation, environment, handlerContext = null, diagnostics)
-        return TypeCheckResult(type, diagnostics)
+        return TypeCheckResult(type, diagnostics.diagnostics, diagnostics.reports)
     }
 
     fun checkClosed(
@@ -157,27 +208,30 @@ class TypeChecker(private val environment: TypeEnvironment) {
         allowedEffects: Set<EffectName> = emptySet(),
     ): TypeCheckResult {
         val result = infer(computation)
-        val diagnostics = result.diagnostics.toMutableList()
+        val diagnostics = result.reports.toMutableList()
         val type = result.type
 
         if (type != null) {
             if (type.result != expectedResult) {
-                diagnostics += TypeDiagnostic.TypeMismatch(expectedResult, type.result)
+                diagnostics += TypeDiagnosticReport(
+                    TypeDiagnostic.TypeMismatch(expectedResult, type.result),
+                    sourceMap.spanOf(computation),
+                )
             }
             val unhandled = type.effects - allowedEffects
             if (unhandled.isNotEmpty()) {
-                diagnostics += TypeDiagnostic.UnhandledEffects(unhandled)
+                diagnostics += TypeDiagnosticReport(TypeDiagnostic.UnhandledEffects(unhandled), sourceMap.spanOf(computation))
             }
         }
 
-        return TypeCheckResult(type, diagnostics)
+        return TypeCheckResult(type, diagnostics.map { it.diagnostic }, diagnostics)
     }
 
     private fun inferComputation(
         computation: TypedComputation,
         env: TypeEnvironment,
         handlerContext: HandlerContext?,
-        diagnostics: MutableList<TypeDiagnostic>,
+        diagnostics: TypeDiagnosticSink,
     ): ComputationType? =
         when (computation) {
             is TypedComputation.Return -> {
@@ -203,14 +257,14 @@ class TypeChecker(private val environment: TypeEnvironment) {
             is TypedComputation.If -> {
                 val conditionType = inferValue(computation.condition, env, diagnostics)
                 if (conditionType != null && conditionType != ValueType.BoolType) {
-                    diagnostics += TypeDiagnostic.IfConditionNonBool
+                    diagnostics.add(TypeDiagnostic.IfConditionNonBool, computation.condition)
                 }
 
                 val thenType = inferComputation(computation.thenBranch, env, handlerContext, diagnostics)
                 val elseType = inferComputation(computation.elseBranch, env, handlerContext, diagnostics)
                 if (thenType != null && elseType != null) {
                     if (thenType.result != elseType.result) {
-                        diagnostics += TypeDiagnostic.TypeMismatch(thenType.result, elseType.result)
+                        diagnostics.add(TypeDiagnostic.TypeMismatch(thenType.result, elseType.result), computation.elseBranch)
                     }
                     ComputationType(thenType.result, thenType.effects + elseType.effects)
                 } else {
@@ -222,7 +276,7 @@ class TypeChecker(private val environment: TypeEnvironment) {
                     is ValueType.ThunkType -> thunkType.computation
                     null -> null
                     else -> {
-                        diagnostics += TypeDiagnostic.ForceNonThunk
+                        diagnostics.add(TypeDiagnostic.ForceNonThunk, computation.thunk)
                         null
                     }
                 }
@@ -233,13 +287,13 @@ class TypeChecker(private val environment: TypeEnvironment) {
                 when (functionType) {
                     is ValueType.FunctionType -> {
                         if (argumentType != null && argumentType != functionType.parameter) {
-                            diagnostics += TypeDiagnostic.TypeMismatch(functionType.parameter, argumentType)
+                            diagnostics.add(TypeDiagnostic.TypeMismatch(functionType.parameter, argumentType), computation.argument)
                         }
                         functionType.result
                     }
                     null -> null
                     else -> {
-                        diagnostics += TypeDiagnostic.ApplyNonFunction
+                        diagnostics.add(TypeDiagnostic.ApplyNonFunction, computation.function)
                         null
                     }
                 }
@@ -248,12 +302,15 @@ class TypeChecker(private val environment: TypeEnvironment) {
             is TypedComputation.Handle -> inferHandle(computation, env, handlerContext, diagnostics)
             is TypedComputation.Resume -> {
                 if (handlerContext == null) {
-                    diagnostics += TypeDiagnostic.ResumeOutsideHandlerClause
+                    diagnostics.add(TypeDiagnostic.ResumeOutsideHandlerClause, computation)
                     null
                 } else {
                     val valueType = inferValue(computation.value, env, diagnostics)
                     if (valueType != null && valueType != handlerContext.resumeValue) {
-                        diagnostics += TypeDiagnostic.ResumeTypeMismatch(handlerContext.resumeValue, valueType)
+                        diagnostics.add(
+                            TypeDiagnostic.ResumeTypeMismatch(handlerContext.resumeValue, valueType),
+                            computation.value,
+                        )
                     }
                     ComputationType(handlerContext.handlerResult)
                 }
@@ -263,29 +320,29 @@ class TypeChecker(private val environment: TypeEnvironment) {
     private fun inferPerform(
         computation: TypedComputation.Perform,
         env: TypeEnvironment,
-        diagnostics: MutableList<TypeDiagnostic>,
+        diagnostics: TypeDiagnosticSink,
     ): ComputationType? {
         val effect = env.effects[computation.effect]
         if (effect == null) {
-            diagnostics += TypeDiagnostic.UnknownEffect(computation.effect)
+            diagnostics.add(TypeDiagnostic.UnknownEffect(computation.effect), computation)
             return null
         }
 
         val operation = effect.operations[computation.operation]
         if (operation == null) {
-            diagnostics += TypeDiagnostic.UnknownOperation(computation.effect, computation.operation)
+            diagnostics.add(TypeDiagnostic.UnknownOperation(computation.effect, computation.operation), computation)
             return null
         }
 
         if (operation.arguments.size != computation.arguments.size) {
-            diagnostics += TypeDiagnostic.ArityMismatch(operation.arguments.size, computation.arguments.size)
+            diagnostics.add(TypeDiagnostic.ArityMismatch(operation.arguments.size, computation.arguments.size), computation)
             return null
         }
 
         operation.arguments.zip(computation.arguments).forEach { (expected, value) ->
             val actual = inferValue(value, env, diagnostics)
             if (actual != null && actual != expected) {
-                diagnostics += TypeDiagnostic.TypeMismatch(expected, actual)
+                diagnostics.add(TypeDiagnostic.TypeMismatch(expected, actual), value)
             }
         }
 
@@ -296,11 +353,11 @@ class TypeChecker(private val environment: TypeEnvironment) {
         computation: TypedComputation.Handle,
         env: TypeEnvironment,
         outerHandlerContext: HandlerContext?,
-        diagnostics: MutableList<TypeDiagnostic>,
+        diagnostics: TypeDiagnosticSink,
     ): ComputationType? {
         val signature = env.effects[computation.handler.effect]
         if (signature == null) {
-            diagnostics += TypeDiagnostic.UnknownEffect(computation.handler.effect)
+            diagnostics.add(TypeDiagnostic.UnknownEffect(computation.handler.effect), computation)
             return null
         }
 
@@ -309,7 +366,7 @@ class TypeChecker(private val environment: TypeEnvironment) {
 
         for (operationName in signature.operations.keys) {
             if (operationName !in computation.handler.clauses) {
-                diagnostics += TypeDiagnostic.MissingHandlerClause(signature.name, operationName)
+                diagnostics.add(TypeDiagnostic.MissingHandlerClause(signature.name, operationName), computation)
             }
         }
 
@@ -317,17 +374,17 @@ class TypeChecker(private val environment: TypeEnvironment) {
         for ((operationName, clause) in computation.handler.clauses) {
             val operation = signature.operations[operationName]
             if (operation == null) {
-                diagnostics += TypeDiagnostic.UnknownOperation(signature.name, operationName)
+                diagnostics.add(TypeDiagnostic.UnknownOperation(signature.name, operationName), clause.body)
                 continue
             }
             if (operation.arguments.size != clause.parameters.size) {
-                diagnostics += TypeDiagnostic.ArityMismatch(operation.arguments.size, clause.parameters.size)
+                diagnostics.add(TypeDiagnostic.ArityMismatch(operation.arguments.size, clause.parameters.size), clause.body)
                 continue
             }
 
             val duplicate = clause.parameters.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
             if (duplicate != null) {
-                diagnostics += TypeDiagnostic.DuplicateHandlerParameter(duplicate.key)
+                diagnostics.add(TypeDiagnostic.DuplicateHandlerParameter(duplicate.key), clause.body)
                 continue
             }
 
@@ -342,7 +399,7 @@ class TypeChecker(private val environment: TypeEnvironment) {
             )
             if (clauseType != null) {
                 if (clauseType.result != bodyType.result) {
-                    diagnostics += TypeDiagnostic.TypeMismatch(bodyType.result, clauseType.result)
+                    diagnostics.add(TypeDiagnostic.TypeMismatch(bodyType.result, clauseType.result), clause.body)
                 }
                 clauseEffects = clauseEffects + clauseType.effects
             }
@@ -357,7 +414,7 @@ class TypeChecker(private val environment: TypeEnvironment) {
     private fun inferValue(
         value: TypedValue,
         env: TypeEnvironment,
-        diagnostics: MutableList<TypeDiagnostic>,
+        diagnostics: TypeDiagnosticSink,
     ): ValueType? =
         when (value) {
             TypedValue.UnitValue -> ValueType.UnitType
@@ -375,7 +432,7 @@ class TypeChecker(private val environment: TypeEnvironment) {
             }
             is TypedValue.Variable -> {
                 env.variables[value.name] ?: run {
-                    diagnostics += TypeDiagnostic.UnknownVariable(value.name)
+                    diagnostics.add(TypeDiagnostic.UnknownVariable(value.name), value)
                     null
                 }
             }
@@ -393,4 +450,19 @@ class TypeChecker(private val environment: TypeEnvironment) {
                 bodyType?.let { ValueType.FunctionType(value.parameterType, it) }
             }
         }
+}
+
+private class TypeDiagnosticSink(
+    private val sourceMap: TypedSourceMap,
+) {
+    val reports = mutableListOf<TypeDiagnosticReport>()
+    val diagnostics: List<TypeDiagnostic> get() = reports.map { it.diagnostic }
+
+    fun add(diagnostic: TypeDiagnostic, computation: TypedComputation) {
+        reports += TypeDiagnosticReport(diagnostic, sourceMap.spanOf(computation))
+    }
+
+    fun add(diagnostic: TypeDiagnostic, value: TypedValue) {
+        reports += TypeDiagnosticReport(diagnostic, sourceMap.spanOf(value))
+    }
 }

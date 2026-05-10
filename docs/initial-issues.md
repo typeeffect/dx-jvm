@@ -67,14 +67,14 @@ Deliverables:
 - `dx check <file.dx>` command.
 - `dx run <file.dx>` command.
 - Script execution through frontend lowering, CBPV typechecking, pure JVM backend, generated class loading, and `eval`.
-- Source-rendered frontend diagnostics.
+- Source-rendered frontend and type diagnostics.
 - Checked-in example script.
 
 Exit criteria:
 
 - `gradle :cli:run --args="check examples/cli/branch_closure.dx"` prints an `ok` line.
 - `gradle :cli:run --args="run examples/cli/branch_closure.dx"` prints `pair(ok, cli)`.
-- CLI tests cover success, source-rendered frontend diagnostics, and usage errors.
+- CLI tests cover success, source-rendered frontend/type diagnostics, and usage errors.
 
 Status:
 

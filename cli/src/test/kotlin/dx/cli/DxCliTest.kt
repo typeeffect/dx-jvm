@@ -74,6 +74,22 @@ class DxCliTest {
     }
 
     @Test
+    fun checkReportsTypeDiagnosticsWithSourceSnippet() {
+        val script = Files.createTempFile("dx-cli-type-bad-", ".dx")
+        script.writeText("if 1 then \"then\" else \"else\"")
+
+        val output = ByteArrayOutputStream()
+        val error = ByteArrayOutputStream()
+        val exit = DxCli(PrintStream(output), PrintStream(error)).run(arrayOf("check", script.toString()))
+
+        assertEquals(1, exit)
+        assertEquals("", output.toString())
+        assertTrue(error.toString().contains(":1:4: error: `if` condition must be Bool"), error.toString())
+        assertTrue(error.toString().contains("if 1 then \"then\" else \"else\""), error.toString())
+        assertTrue(error.toString().contains("   ^"), error.toString())
+    }
+
+    @Test
     fun missingArgumentsReturnUsageError() {
         val output = ByteArrayOutputStream()
         val error = ByteArrayOutputStream()

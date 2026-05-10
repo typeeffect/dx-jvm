@@ -29,6 +29,8 @@ Typed core implementation:
 - Module: `compiler/cbpv-core`.
 - Types are split into `ValueType` and `ComputationType`.
 - `ComputationType` records both result type and effect set.
+- `TypedSourceMap` optionally associates typed CBPV values/computations with frontend source spans without making CBPV depend on frontend AST classes.
+- `TypeCheckResult` includes both legacy structural diagnostics and source-aware diagnostic reports.
 - `if` is a computation form: the condition must be a `Bool` value, both branches must return the same value type, and branch effects are unioned.
 - Effect signatures define operation argument types and operation result type.
 - `perform` infers the operation result type and adds the effect to the computation row.
