@@ -7,6 +7,11 @@ The first implementation target is an executable CBPV Core semantics that can
 validate typed effects, lexical handlers, and one-shot resumptions before JVM
 bytecode lowering begins.
 
+CBPV status: the current vertical slice is CBPV-inspired and executable. The
+normative core direction follows Levy-style `F`/`U`, explicit sequencing, and
+computation-level functions. The current lambda-as-value closure model is a
+documented Stage -1 shortcut; see `docs/levy-cbpv-alignment.md`.
+
 Current focus:
 
 1. CBPV Core executable semantics.

@@ -83,3 +83,32 @@ Exit criteria:
 Status:
 
 - Implemented in `cli`.
+
+## DX-005: Align Core IR With Levy CBPV F/U And Computation Functions
+
+Goal: remove the Stage -1 function/lambda shortcut and align the executable
+core with Levy-style CBPV before async and handler lowering depend on the
+current value-closure representation.
+
+Deliverables:
+
+- Update `spec/cbpv-core.md` grammar to make `F` and `U` explicit.
+- Move function types from value types to computation types.
+- Represent lambda as a computation, not a value.
+- Lower source lambdas to thunked computation values.
+- Lower source calls through explicit bind sequencing and `force`.
+- Preserve source spans through the new lowering path.
+- Update interpreter, type checker, frontend lowering, JVM pure backend, and
+  CLI tests.
+
+Exit criteria:
+
+- Existing pure frontend/JVM vertical-slice tests pass through the new
+  representation.
+- New semantic tests cover `return`/`bind` laws, `force(thunk M)`, lambda
+  application, and call evaluation order.
+- Negative tests reject computation-only terms in value positions.
+
+Status:
+
+- Identified by Levy CBPV alignment audit.

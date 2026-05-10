@@ -4,7 +4,7 @@ Language name: **dx**.
 
 Status: architecture draft and execution plan. Decisions are provisional until validated by compiler/runtime spikes.
 
-Last reviewed: 2026-05-10.
+Last reviewed: 2026-05-11.
 
 ## 1. Concise Architecture Recommendation
 
@@ -24,7 +24,7 @@ Key decisions:
 | Area | Recommendation |
 |---|---|
 | Compiler | New compiler in Kotlin, using ANTLR or a hand-written Pratt/recursive descent parser initially; ASM for bytecode. |
-| Core IR | Call-by-push-value-inspired IR, separating values from computations before effect, handler, async, and continuation lowering. |
+| Core IR | Levy-style call-by-push-value is the normative IR direction: separate values from computations before effect, handler, async, and continuation lowering. The current prototype is a CBPV-inspired vertical slice and still has a documented function/lambda shortcut. |
 | JVM baseline | Java 21 minimum. Virtual threads are final in JDK 21. Structured concurrency is still preview as of JDK 26, so wrap it behind our runtime API. |
 | Effects | Nominal effect declarations with structural row-like effect sets. Public signatures include effects. |
 | Capabilities | Lexical capabilities, compiler tracked. Capabilities cannot escape their region unless declared safe/exportable. |
@@ -66,6 +66,7 @@ Current facts used:
 - Flix docs describe a direct-style type/effect system on the JVM.
 - Effekt docs describe lexical effect handlers and capabilities.
 - Levy's call-by-push-value notes motivate the compiler's separation of values, computations, explicit sequencing, thunks, and continuation/stack-sensitive semantics.
+- The detailed audit is tracked in `docs/levy-cbpv-alignment.md`.
 
 ## 3. Product Definition
 
@@ -589,6 +590,23 @@ The compiler core should follow Levy's call-by-push-value discipline: values and
 
 This is an internal compiler architecture decision, not a surface syntax decision. dx users still write direct-style code; the compiler elaborates it into CBPV-shaped IR before effect and async lowering.
 
+Levy alignment note:
+
+- Normative dx core should expose `F A` as the computation type for a
+  computation returning value type `A`, with effects attached to that
+  computation type.
+- Normative dx core should expose `U C` as the value type for a thunked
+  computation.
+- Function types belong in computation types; lambda is a computation.
+- Source-level CBV function values lower to thunked computation values,
+  internally shaped as `U(A -> F B)`.
+- Source-level function application lowers through explicit bind sequencing of
+  the function expression and argument expression, then forces the function
+  thunk.
+- The current Kotlin implementation still represents lambdas as value closures
+  for the pure CLI/JVM vertical slice. That is a known Stage -1 shortcut, not
+  the final CBPV design.
+
 CBPV core sketch:
 
 ```text
@@ -619,6 +637,24 @@ Computations M ::=
   handle M with H
   await V
   use x = M in N
+```
+
+CBV source-function translation target:
+
+```text
+// source value
+fun x -> body
+
+// CBPV-shaped value-producing computation
+return thunk (lambda x. lower(body))
+
+// source call
+f(a)
+
+// CBPV-shaped computation
+bind lower(f) as fv in
+bind lower(a) as av in
+(force fv) av
 ```
 
 Judgment sketch:
@@ -1308,7 +1344,7 @@ Initial effect subset:
 Initial IR:
 
 - Typed expression tree with explicit symbols and effect rows.
-- CBPV core IR with `Value`, `Computation`, `Return`, `Bind`, `Thunk`, `Force`, `Perform`, `Handle`, `Await`.
+- CBPV core IR with `Value`, `Computation`, `F`, `U`, `Return`, `Bind`, `Thunk`, `Force`, computation-level `Lambda`, `Apply`, `Perform`, `Handle`, `Await`.
 - Lowered continuation IR after week 9.
 
 Initial runtime API:
