@@ -88,6 +88,38 @@ class FrontendPipelineTest {
 
         assertSuccess(result)
         assertEquals("Ada", evalFrontend(result))
+        assertEquals("Ada", compileAndRunJvm(assertNotNull(result.computation)))
+    }
+
+    @Test
+    fun parsesClosureCaptureForJvm() {
+        val result = pipeline.compile(
+            SourceId("closure.dx"),
+            """
+            val prefix = "Ada";
+            val combine = fun x: Str -> pair(prefix, x);
+            combine("Lovelace")
+            """.trimIndent(),
+        )
+
+        assertSuccess(result)
+        assertEquals(Pair("Ada", "Lovelace"), evalFrontend(result))
+        assertEquals(Pair("Ada", "Lovelace"), compileAndRunJvm(assertNotNull(result.computation)))
+    }
+
+    @Test
+    fun parsesNestedClosureCaptureForJvm() {
+        val result = pipeline.compile(
+            SourceId("nested_closure.dx"),
+            """
+            val inner = (fun x: Str -> fun y: Str -> pair(x, y))("Ada");
+            inner("Lovelace")
+            """.trimIndent(),
+        )
+
+        assertSuccess(result)
+        assertEquals(Pair("Ada", "Lovelace"), evalFrontend(result))
+        assertEquals(Pair("Ada", "Lovelace"), compileAndRunJvm(assertNotNull(result.computation)))
     }
 
     @Test
@@ -165,7 +197,8 @@ class FrontendPipelineTest {
             computation = computation,
         )
         assertTrue(compiled.diagnostics.isEmpty(), "${compiled.diagnostics}")
-        val klass = GeneratedClassLoader().define(assertNotNull(compiled.generatedClass))
+        val classes = GeneratedClassLoader().defineAll(compiled.supportClasses + listOf(assertNotNull(compiled.generatedClass)))
+        val klass = assertNotNull(classes["dx/generated/frontend/Program"])
         return klass.getMethod("eval").invoke(null)
     }
 

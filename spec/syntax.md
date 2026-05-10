@@ -36,8 +36,8 @@ Initial value types in source:
 
 Current backend note:
 
-- Direct application of literal typed lambdas can lower to JVM bytecode.
-- Lambda values stored in variables execute in the interpreter but are not yet lowered to JVM closure objects.
+- Typed lambdas lower to JVM closure objects implementing the backend `DxFunction` ABI.
+- Direct lambda application, lambda values stored in variables, and lexical capture are supported in the current pure JVM subset.
 
 Frontend pipeline:
 

@@ -120,4 +120,9 @@ class GeneratedClassLoader(parent: ClassLoader = ClassLoader.getSystemClassLoade
             0,
             generatedClass.bytecode.size,
         )
+
+    fun defineAll(generatedClasses: List<GeneratedClass>): Map<String, Class<*>> =
+        generatedClasses.associate { generatedClass ->
+            generatedClass.internalName to define(generatedClass)
+        }
 }

@@ -142,14 +142,122 @@ class CbpvPureJvmCompilerTest {
     }
 
     @Test
+    fun compilesLambdaStoredInVariable() {
+        assertJvmMatchesInterpreter(
+            className = "dx/generated/cbpv/LambdaStoredInVariable",
+            computation = TypedComputation.Bind(
+                name = "id",
+                first = TypedComputation.Return(
+                    TypedValue.Lambda(
+                        parameter = "x",
+                        parameterType = ValueType.StringType,
+                        body = TypedComputation.Return(TypedValue.Variable("x")),
+                    ),
+                ),
+                next = TypedComputation.Apply(
+                    function = TypedValue.Variable("id"),
+                    argument = TypedValue.StringValue("Ada"),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun compilesClosureCapture() {
+        assertJvmMatchesInterpreter(
+            className = "dx/generated/cbpv/ClosureCapture",
+            computation = TypedComputation.Bind(
+                name = "prefix",
+                first = TypedComputation.Return(TypedValue.StringValue("Ada")),
+                next = TypedComputation.Bind(
+                    name = "combine",
+                    first = TypedComputation.Return(
+                        TypedValue.Lambda(
+                            parameter = "x",
+                            parameterType = ValueType.StringType,
+                            body = TypedComputation.Return(
+                                TypedValue.PairValue(
+                                    TypedValue.Variable("prefix"),
+                                    TypedValue.Variable("x"),
+                                ),
+                            ),
+                        ),
+                    ),
+                    next = TypedComputation.Apply(
+                        function = TypedValue.Variable("combine"),
+                        argument = TypedValue.StringValue("Lovelace"),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun compilesNestedClosureCapturingOuterParameter() {
+        assertJvmMatchesInterpreter(
+            className = "dx/generated/cbpv/NestedClosureCapture",
+            computation = TypedComputation.Bind(
+                name = "inner",
+                first = TypedComputation.Apply(
+                    function = TypedValue.Lambda(
+                        parameter = "x",
+                        parameterType = ValueType.StringType,
+                        body = TypedComputation.Return(
+                            TypedValue.Lambda(
+                                parameter = "y",
+                                parameterType = ValueType.StringType,
+                                body = TypedComputation.Return(
+                                    TypedValue.PairValue(
+                                        TypedValue.Variable("x"),
+                                        TypedValue.Variable("y"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    argument = TypedValue.StringValue("Ada"),
+                ),
+                next = TypedComputation.Apply(
+                    function = TypedValue.Variable("inner"),
+                    argument = TypedValue.StringValue("Lovelace"),
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun generatedPureClassPassesAsmVerification() {
-        val generated = compile(
+        val result = compile(
             "dx/generated/cbpv/Verify",
             TypedComputation.Return(TypedValue.StringValue("verified")),
         )
 
         val output = StringWriter()
-        CheckClassAdapter.verify(ClassReader(generated.bytecode), false, PrintWriter(output))
+        result.allClasses().forEach { generated ->
+            CheckClassAdapter.verify(ClassReader(generated.bytecode), false, PrintWriter(output))
+        }
+        assertEquals("", output.toString())
+    }
+
+    @Test
+    fun generatedClosureClassesPassAsmVerification() {
+        val result = compile(
+            "dx/generated/cbpv/VerifyClosure",
+            TypedComputation.Apply(
+                function = TypedValue.Lambda(
+                    parameter = "x",
+                    parameterType = ValueType.StringType,
+                    body = TypedComputation.Return(TypedValue.Variable("x")),
+                ),
+                argument = TypedValue.StringValue("verified"),
+            ),
+        )
+
+        assertTrue(result.supportClasses.isNotEmpty())
+        val output = StringWriter()
+        result.allClasses().forEach { generated ->
+            CheckClassAdapter.verify(ClassReader(generated.bytecode), false, PrintWriter(output))
+        }
         assertEquals("", output.toString())
     }
 
@@ -191,19 +299,21 @@ class CbpvPureJvmCompilerTest {
     }
 
     private fun compileAndEval(className: String, computation: TypedComputation): Any? {
-        val generated = compile(className, computation)
-        val klass = GeneratedClassLoader().define(generated)
+        val result = compile(className, computation)
+        val classes = GeneratedClassLoader().defineAll(result.allClasses())
+        val klass = assertNotNull(classes[className])
         return klass.getMethod("eval").invoke(null)
     }
 
-    private fun compile(className: String, computation: TypedComputation): GeneratedClass {
+    private fun compile(className: String, computation: TypedComputation): CbpvJvmCompileResult {
         val result = compiler.compileEvalClass(
             internalName = className,
             source = SourceLocation("cbpv.dx", 11),
             computation = computation,
         )
         assertTrue(result.diagnostics.isEmpty(), "${result.diagnostics}")
-        return assertNotNull(result.generatedClass)
+        assertNotNull(result.generatedClass)
+        return result
     }
 
     private fun normalizeInterpreterResult(result: RuntimeResult): Any? =
@@ -226,3 +336,6 @@ class CbpvPureJvmCompilerTest {
             is RuntimeValue.ClosureValue -> error("closure result is not part of the pure JVM value subset")
         }
 }
+
+private fun CbpvJvmCompileResult.allClasses(): List<GeneratedClass> =
+    supportClasses + listOfNotNull(generatedClass)

@@ -29,11 +29,15 @@ Current spike:
 CBPV pure lowering spike:
 
 - `CbpvPureJvmCompiler` lowers a closed pure subset of typed CBPV to a JVM class with `public static Object eval()`.
-- Supported computation forms: `return`, `bind`, `force` of literal thunk, and application of literal lambdas.
-- Supported value forms: unit, booleans, integers as boxed `Long`, strings, pairs as Kotlin `Pair`, and local variables.
+- Supported computation forms: `return`, `bind`, `force` of literal thunk, and function application.
+- Supported value forms: unit, booleans, integers as boxed `Long`, strings, pairs as Kotlin `Pair`, local variables, and typed lambdas.
+- Typed lambdas lower to generated closure classes implementing `dx.jvm.DxFunction`.
+- Closure classes store captured lexical variables in final `Object` fields and expose `Object apply(Object argument)`.
+- `CbpvJvmCompileResult` returns the main generated class plus support classes, which must be defined in the same classloader before execution.
 - Unsupported effectful forms (`perform`, `handle`, `resume`) produce diagnostics instead of bytecode.
 - Tests compare JVM execution against the first-order CBPV interpreter for the supported pure subset.
 - Tests verify lexical local binding restoration after shadowing.
+- Tests verify generated main and closure support classes with ASM `CheckClassAdapter`.
 
 Frontend-to-JVM vertical slice:
 
