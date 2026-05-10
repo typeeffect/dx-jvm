@@ -6,3 +6,5 @@ out/
 *.log
 .idea/
 .kotlin/
+gradle-*/
+sdkman-*/
