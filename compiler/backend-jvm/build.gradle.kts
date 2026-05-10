@@ -7,6 +7,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":compiler:cbpv-core"))
     implementation("org.ow2.asm:asm:9.7.1")
 
     testImplementation(kotlin("test"))

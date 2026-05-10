@@ -25,3 +25,12 @@ Current spike:
 - Module: `compiler/backend-jvm`.
 - `JvmBytecodeGenerator.generatePrintMain` emits a public final class with `public static void main(String[] args)`.
 - `JvmBytecodeGenerator.generateThrowingMain` emits a throwing main used to validate source line metadata in stack traces.
+
+CBPV pure lowering spike:
+
+- `CbpvPureJvmCompiler` lowers a closed pure subset of typed CBPV to a JVM class with `public static Object eval()`.
+- Supported computation forms: `return`, `bind`, `force` of literal thunk, and application of literal lambdas.
+- Supported value forms: unit, booleans, integers as boxed `Long`, strings, pairs as Kotlin `Pair`, and local variables.
+- Unsupported effectful forms (`perform`, `handle`, `resume`) produce diagnostics instead of bytecode.
+- Tests compare JVM execution against the first-order CBPV interpreter for the supported pure subset.
+- Tests verify lexical local binding restoration after shadowing.
