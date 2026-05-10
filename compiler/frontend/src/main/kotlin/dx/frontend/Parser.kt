@@ -54,6 +54,7 @@ class Parser(private val tokens: List<Token>) {
     private fun parseExpr(): DxExpr? =
         when {
             match(TokenKind.Val) -> parseVal(previous())
+            match(TokenKind.If) -> parseIf(previous())
             match(TokenKind.Fun) -> parseLambda(previous())
             match(TokenKind.Thunk) -> parseThunk(previous())
             match(TokenKind.Force) -> parseForce(previous())
@@ -66,6 +67,15 @@ class Parser(private val tokens: List<Token>) {
         consume(TokenKind.Equal, "`=`") ?: return null
         val value = parseExpr() ?: return null
         return PendingVal(name.lexeme, value, merge(keyword.span, value.span))
+    }
+
+    private fun parseIf(keyword: Token): DxExpr? {
+        val condition = parseExpr() ?: return null
+        consume(TokenKind.Then, "`then`") ?: return null
+        val thenBranch = parseExpr() ?: return null
+        consume(TokenKind.Else, "`else`") ?: return null
+        val elseBranch = parseExpr() ?: return null
+        return DxExpr.If(condition, thenBranch, elseBranch, merge(keyword.span, elseBranch.span))
     }
 
     private fun parseLambda(keyword: Token): DxExpr? {

@@ -29,7 +29,7 @@ Current spike:
 CBPV pure lowering spike:
 
 - `CbpvPureJvmCompiler` lowers a closed pure subset of typed CBPV to a JVM class with `public static Object eval()`.
-- Supported computation forms: `return`, `bind`, `force` of literal thunk, and function application.
+- Supported computation forms: `return`, `bind`, `if`, `force` of literal thunk, and function application.
 - Supported value forms: unit, booleans, integers as boxed `Long`, strings, pairs as Kotlin `Pair`, local variables, and typed lambdas.
 - Typed lambdas lower to generated closure classes implementing `dx.jvm.DxFunction`.
 - Closure classes store captured lexical variables in final `Object` fields and expose `Object apply(Object argument)`.

@@ -20,6 +20,7 @@ Initial executable frontend subset:
 - Literals: `unit`, booleans, integers, strings.
 - Variables.
 - `val name = expr; body` sequences.
+- Conditionals: `if condition then thenExpr else elseExpr`.
 - Blocks: `{ stmt; body }`.
 - Pairs: `pair(a, b)`.
 - Thunks: `thunk { expr }`.
@@ -36,6 +37,7 @@ Initial value types in source:
 
 Current backend note:
 
+- `if` lowers through CBPV to JVM conditional branches in the pure subset.
 - Typed lambdas lower to JVM closure objects implementing the backend `DxFunction` ABI.
 - Direct lambda application, lambda values stored in variables, and lexical capture are supported in the current pure JVM subset.
 

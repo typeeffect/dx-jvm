@@ -16,9 +16,12 @@ import org.objectweb.asm.Opcodes.ASTORE
 import org.objectweb.asm.Opcodes.CHECKCAST
 import org.objectweb.asm.Opcodes.DUP
 import org.objectweb.asm.Opcodes.GETFIELD
+import org.objectweb.asm.Opcodes.GOTO
+import org.objectweb.asm.Opcodes.IFEQ
 import org.objectweb.asm.Opcodes.INVOKEINTERFACE
 import org.objectweb.asm.Opcodes.INVOKESPECIAL
 import org.objectweb.asm.Opcodes.INVOKESTATIC
+import org.objectweb.asm.Opcodes.INVOKEVIRTUAL
 import org.objectweb.asm.Opcodes.NEW
 import org.objectweb.asm.Opcodes.PUTFIELD
 import org.objectweb.asm.Opcodes.RETURN
@@ -101,6 +104,7 @@ class CbpvPureJvmCompiler {
                 emitComputation(computation.next, method, context, state, diagnostics)
                 context.release(computation.name)
             }
+            is TypedComputation.If -> emitIf(computation, method, context, state, diagnostics)
             is TypedComputation.Force -> {
                 when (val thunk = computation.thunk) {
                     is TypedValue.ThunkValue -> emitComputation(thunk.computation, method, context, state, diagnostics)
@@ -112,6 +116,27 @@ class CbpvPureJvmCompiler {
             is TypedComputation.Handle -> diagnostics += CbpvJvmDiagnostic.UnsupportedComputation("Handle")
             is TypedComputation.Resume -> diagnostics += CbpvJvmDiagnostic.UnsupportedComputation("Resume")
         }
+    }
+
+    private fun emitIf(
+        computation: TypedComputation.If,
+        method: MethodVisitor,
+        context: EmitContext,
+        state: CompilationState,
+        diagnostics: MutableList<CbpvJvmDiagnostic>,
+    ) {
+        val elseLabel = Label()
+        val endLabel = Label()
+
+        emitValue(computation.condition, method, context, state, diagnostics)
+        method.visitTypeInsn(CHECKCAST, "java/lang/Boolean")
+        method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false)
+        method.visitJumpInsn(IFEQ, elseLabel)
+        emitComputation(computation.thenBranch, method, context, state, diagnostics)
+        method.visitJumpInsn(GOTO, endLabel)
+        method.visitLabel(elseLabel)
+        emitComputation(computation.elseBranch, method, context, state, diagnostics)
+        method.visitLabel(endLabel)
     }
 
     private fun emitApply(
@@ -357,6 +382,10 @@ private fun freeVariables(computation: TypedComputation): Set<String> =
     when (computation) {
         is TypedComputation.Return -> freeVariables(computation.value)
         is TypedComputation.Bind -> freeVariables(computation.first) + (freeVariables(computation.next) - computation.name)
+        is TypedComputation.If ->
+            freeVariables(computation.condition) +
+                freeVariables(computation.thenBranch) +
+                freeVariables(computation.elseBranch)
         is TypedComputation.Force -> freeVariables(computation.thunk)
         is TypedComputation.Apply -> freeVariables(computation.function) + freeVariables(computation.argument)
         is TypedComputation.Perform -> computation.arguments.flatMapTo(mutableSetOf()) { freeVariables(it) }

@@ -62,6 +62,12 @@ sealed interface TypedComputation {
         val next: TypedComputation,
     ) : TypedComputation
 
+    data class If(
+        val condition: TypedValue,
+        val thenBranch: TypedComputation,
+        val elseBranch: TypedComputation,
+    ) : TypedComputation
+
     data class Force(val thunk: TypedValue) : TypedComputation
     data class Apply(val function: TypedValue, val argument: TypedValue) : TypedComputation
     data class Perform(
@@ -114,6 +120,7 @@ sealed interface TypeDiagnostic {
 
     data object ForceNonThunk : TypeDiagnostic
     data object ApplyNonFunction : TypeDiagnostic
+    data object IfConditionNonBool : TypeDiagnostic
     data object ResumeOutsideHandlerClause : TypeDiagnostic
     data class ResumeTypeMismatch(
         val expected: ValueType,
@@ -191,6 +198,23 @@ class TypeChecker(private val environment: TypeEnvironment) {
                     nextType?.let {
                         ComputationType(it.result, firstType.effects + it.effects)
                     }
+                }
+            }
+            is TypedComputation.If -> {
+                val conditionType = inferValue(computation.condition, env, diagnostics)
+                if (conditionType != null && conditionType != ValueType.BoolType) {
+                    diagnostics += TypeDiagnostic.IfConditionNonBool
+                }
+
+                val thenType = inferComputation(computation.thenBranch, env, handlerContext, diagnostics)
+                val elseType = inferComputation(computation.elseBranch, env, handlerContext, diagnostics)
+                if (thenType != null && elseType != null) {
+                    if (thenType.result != elseType.result) {
+                        diagnostics += TypeDiagnostic.TypeMismatch(thenType.result, elseType.result)
+                    }
+                    ComputationType(thenType.result, thenType.effects + elseType.effects)
+                } else {
+                    null
                 }
             }
             is TypedComputation.Force -> {

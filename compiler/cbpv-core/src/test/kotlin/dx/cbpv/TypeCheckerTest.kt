@@ -65,6 +65,64 @@ class TypeCheckerTest {
     }
 
     @Test
+    fun ifRequiresBoolConditionAndReturnsBranchType() {
+        val program = TypedComputation.If(
+            condition = TypedValue.BoolValue(true),
+            thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+            elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+        )
+
+        assertEquals(ComputationType(ValueType.StringType), checker.infer(program).type)
+    }
+
+    @Test
+    fun ifUnionsBranchEffects() {
+        val program = TypedComputation.If(
+            condition = TypedValue.BoolValue(true),
+            thenBranch = TypedComputation.Perform("Ask", "name"),
+            elseBranch = TypedComputation.Bind(
+                name = "_",
+                first = TypedComputation.Perform("Log", "info", listOf(TypedValue.StringValue("else"))),
+                next = TypedComputation.Return(TypedValue.StringValue("fallback")),
+            ),
+        )
+
+        assertEquals(
+            ComputationType(ValueType.StringType, setOf("Ask", "Log")),
+            checker.infer(program).type,
+        )
+    }
+
+    @Test
+    fun ifRejectsNonBoolCondition() {
+        val result = checker.infer(
+            TypedComputation.If(
+                condition = TypedValue.IntValue(1),
+                thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+                elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+            ),
+        )
+
+        assertEquals(listOf(TypeDiagnostic.IfConditionNonBool), result.diagnostics)
+    }
+
+    @Test
+    fun ifRejectsMismatchedBranchTypes() {
+        val result = checker.infer(
+            TypedComputation.If(
+                condition = TypedValue.BoolValue(true),
+                thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+                elseBranch = TypedComputation.Return(TypedValue.IntValue(1)),
+            ),
+        )
+
+        assertEquals(
+            listOf(TypeDiagnostic.TypeMismatch(ValueType.StringType, ValueType.IntType)),
+            result.diagnostics,
+        )
+    }
+
+    @Test
     fun performUnknownEffectIsDiagnostic() {
         val result = checker.infer(TypedComputation.Perform("Db", "query"))
 

@@ -19,8 +19,8 @@ Initial goal:
 Stage -1 implementation:
 
 - Module: `compiler/cbpv-core`.
-- Language: Kotlin/JVM.
-- Current executable forms: `return`, `bind`, `thunk`, `force`, function application, `perform`, `handle`.
+- Implementation language: Kotlin/JVM.
+- Current executable forms: `return`, `bind`, `if`, `thunk`, `force`, function application, `perform`, `handle`.
 - Current safety checks: unhandled effect, missing operation, type mismatch, one-shot double resume, resume after handler scope exit.
 - Current semantic test target: at least 20 focused tests before backend lowering depends on these semantics.
 
@@ -29,6 +29,7 @@ Typed core implementation:
 - Module: `compiler/cbpv-core`.
 - Types are split into `ValueType` and `ComputationType`.
 - `ComputationType` records both result type and effect set.
+- `if` is a computation form: the condition must be a `Bool` value, both branches must return the same value type, and branch effects are unioned.
 - Effect signatures define operation argument types and operation result type.
 - `perform` infers the operation result type and adds the effect to the computation row.
 - `handle` eliminates the handled effect and keeps effects introduced by handler clauses.

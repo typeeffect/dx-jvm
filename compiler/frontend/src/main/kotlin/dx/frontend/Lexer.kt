@@ -57,6 +57,9 @@ class Lexer(
             "unit" -> TokenKind.Unit
             "val" -> TokenKind.Val
             "fun" -> TokenKind.Fun
+            "if" -> TokenKind.If
+            "then" -> TokenKind.Then
+            "else" -> TokenKind.Else
             "thunk" -> TokenKind.Thunk
             "force" -> TokenKind.Force
             "pair" -> TokenKind.Pair

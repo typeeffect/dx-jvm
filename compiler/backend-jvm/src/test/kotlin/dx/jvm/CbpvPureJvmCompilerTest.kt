@@ -81,6 +81,34 @@ class CbpvPureJvmCompilerTest {
     }
 
     @Test
+    fun compilesIfThenBranch() {
+        assertJvmMatchesInterpreter(
+            className = "dx/generated/cbpv/IfThen",
+            computation = TypedComputation.If(
+                condition = TypedValue.BoolValue(true),
+                thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+                elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+            ),
+        )
+    }
+
+    @Test
+    fun compilesIfElseBranchWithVariableCondition() {
+        assertJvmMatchesInterpreter(
+            className = "dx/generated/cbpv/IfElseVariableCondition",
+            computation = TypedComputation.Bind(
+                name = "condition",
+                first = TypedComputation.Return(TypedValue.BoolValue(false)),
+                next = TypedComputation.If(
+                    condition = TypedValue.Variable("condition"),
+                    thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+                    elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun compilesNestedBindWithShadowing() {
         assertJvmMatchesInterpreter(
             className = "dx/generated/cbpv/NestedBind",

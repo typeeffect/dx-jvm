@@ -24,6 +24,28 @@ class TypedEvaluatorTest {
     }
 
     @Test
+    fun ifEvaluatesSelectedBranch() {
+        val program = TypedComputation.If(
+            condition = TypedValue.BoolValue(false),
+            thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+            elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+        )
+
+        assertDone(RuntimeValue.StringValue("else"), evaluator.eval(program))
+    }
+
+    @Test
+    fun ifRejectsNonBoolAtRuntime() {
+        val program = TypedComputation.If(
+            condition = TypedValue.IntValue(1),
+            thenBranch = TypedComputation.Return(TypedValue.StringValue("then")),
+            elseBranch = TypedComputation.Return(TypedValue.StringValue("else")),
+        )
+
+        assertEquals(RuntimeError.TypeMismatch("bool", RuntimeValue.IntValue(1)), assertFailed(evaluator.eval(program)))
+    }
+
+    @Test
     fun forceRunsThunkWithCapturedVariables() {
         val program = TypedComputation.Bind(
             name = "x",

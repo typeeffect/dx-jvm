@@ -33,6 +33,16 @@ class CbpvLowerer {
                     null
                 }
             }
+            is DxExpr.If -> {
+                val condition = lowerValue(expr.condition, diagnostics)
+                val thenBranch = lowerComputation(expr.thenBranch, diagnostics)
+                val elseBranch = lowerComputation(expr.elseBranch, diagnostics)
+                if (condition != null && thenBranch != null && elseBranch != null) {
+                    TypedComputation.If(condition, thenBranch, elseBranch)
+                } else {
+                    null
+                }
+            }
             is DxExpr.Force -> {
                 val value = lowerValue(expr.value, diagnostics)
                 value?.let(TypedComputation::Force)
@@ -83,6 +93,7 @@ class CbpvLowerer {
             }
             is DxExpr.Apply,
             is DxExpr.Force,
+            is DxExpr.If,
             is DxExpr.Val -> {
                 diagnostics += LowerDiagnostic.UnsupportedExpression(
                     "effectful expression is not a value in the initial frontend subset",

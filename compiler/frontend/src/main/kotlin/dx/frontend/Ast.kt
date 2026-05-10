@@ -17,6 +17,13 @@ sealed interface DxExpr {
         override val span: SourceSpan,
     ) : DxExpr
 
+    data class If(
+        val condition: DxExpr,
+        val thenBranch: DxExpr,
+        val elseBranch: DxExpr,
+        override val span: SourceSpan,
+    ) : DxExpr
+
     data class Lambda(
         val parameter: String,
         val parameterType: ValueType,

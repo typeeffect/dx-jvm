@@ -121,6 +121,22 @@ class TypedEvaluator {
                         continuation,
                     )
                 }
+            is TypedComputation.If ->
+                when (val condition = evalValue(computation.condition, environment)) {
+                    is RuntimeValueResult.Done ->
+                        when (val value = condition.value) {
+                            is RuntimeValue.BoolValue ->
+                                eval(
+                                    if (value.value) computation.thenBranch else computation.elseBranch,
+                                    environment,
+                                    handlers,
+                                    handlerContext,
+                                    continuation,
+                                )
+                            else -> RuntimeResult.Failed(RuntimeError.TypeMismatch("bool", value))
+                        }
+                    is RuntimeValueResult.Failed -> RuntimeResult.Failed(condition.error)
+                }
             is TypedComputation.Force ->
                 when (val thunk = evalValue(computation.thunk, environment)) {
                     is RuntimeValueResult.Done ->

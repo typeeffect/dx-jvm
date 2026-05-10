@@ -43,6 +43,25 @@ class FrontendPipelineTest {
     }
 
     @Test
+    fun lexesIfThenElseKeywords() {
+        val result = Lexer(SourceId("if.dx"), "if true then \"a\" else \"b\"").lex()
+
+        assertTrue(result.diagnostics.isEmpty(), "${result.diagnostics}")
+        assertEquals(
+            listOf(
+                TokenKind.If,
+                TokenKind.True,
+                TokenKind.Then,
+                TokenKind.String,
+                TokenKind.Else,
+                TokenKind.String,
+                TokenKind.Eof,
+            ),
+            result.tokens.map { it.kind },
+        )
+    }
+
+    @Test
     fun parsesAndLowersValSequenceToCbpvBind() {
         val result = pipeline.compile(SourceId("bind.dx"), "val x = \"hello\"; x")
 
@@ -71,6 +90,33 @@ class FrontendPipelineTest {
 
         assertSuccess(result)
         assertEquals(Pair("left", 9L), evalFrontend(result))
+    }
+
+    @Test
+    fun parsesIfExpression() {
+        val result = pipeline.compile(SourceId("if.dx"), "if false then \"then\" else \"else\"")
+
+        assertSuccess(result)
+        assertEquals("else", evalFrontend(result))
+        assertEquals("else", compileAndRunJvm(assertNotNull(result.computation)))
+    }
+
+    @Test
+    fun parsesIfWithBranchComputations() {
+        val result = pipeline.compile(
+            SourceId("if_block.dx"),
+            """
+            val useThen = true;
+            if useThen then {
+              val x = "then";
+              x
+            } else "else"
+            """.trimIndent(),
+        )
+
+        assertSuccess(result)
+        assertEquals("then", evalFrontend(result))
+        assertEquals("then", compileAndRunJvm(assertNotNull(result.computation)))
     }
 
     @Test
