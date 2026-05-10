@@ -1,0 +1,3 @@
+val useThen = true;
+val choose = fun x: Str -> if useThen then pair("ok", x) else pair("bad", x);
+choose("cli")

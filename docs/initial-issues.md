@@ -20,7 +20,7 @@ Exit criteria:
 Status:
 
 - Initial hand-written lexer/parser implemented in `compiler/frontend`.
-- Supports literals, variables, `val` sequences, blocks, pairs, thunks, and force.
+- Supports literals, variables, `val` sequences, `if`, blocks, pairs, thunks, force, typed lambdas, application, and closure capture in the JVM vertical slice.
 - Includes frontend-to-CBPV lowering and an end-to-end interpreter/JVM equivalence test for the supported pure subset.
 
 ## DX-002: Define CBPV Core executable semantics
@@ -56,3 +56,23 @@ Status:
 
 - Implemented in `compiler/backend-jvm`.
 - Covered by bytecode verification, execution, generated class naming, and stack trace line tests.
+
+## DX-004: Add CLI Script Runner
+
+Goal: make the prototype executable outside tests while keeping the same compiler path.
+
+Deliverables:
+
+- `cli` Gradle module.
+- `dx run <file.dx>` command.
+- Script execution through frontend lowering, CBPV typechecking, pure JVM backend, generated class loading, and `eval`.
+- Checked-in example script.
+
+Exit criteria:
+
+- `gradle :cli:run --args="run examples/cli/branch_closure.dx"` prints `pair(ok, cli)`.
+- CLI tests cover success, frontend diagnostics, and usage errors.
+
+Status:
+
+- Implemented in `cli`.
