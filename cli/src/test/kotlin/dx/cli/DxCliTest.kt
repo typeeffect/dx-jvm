@@ -3,9 +3,11 @@ package dx.cli
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.file.Files
+import java.net.URLClassLoader
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
+import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -62,7 +64,7 @@ class DxCliTest {
     }
 
     @Test
-    fun compileWritesMainAndSupportClasses() {
+    fun compileWritesLoadableMainAndSupportClasses() {
         val script = Files.createTempFile("dx-cli-compile-", ".dx")
         script.writeText(
             """
@@ -87,8 +89,21 @@ class DxCliTest {
             paths.filter { it.isRegularFile() && it.extension == "class" }.toList()
         }
         assertEquals(2, classFiles.size)
-        assertTrue(classFiles.any { it.name.startsWith("Script_") }, classFiles.toString())
+        val mainClassFile = classFiles.single { it.name.startsWith("Script_") && !it.name.contains("\$Lambda") }
         assertTrue(classFiles.any { it.name.contains("\$Lambda") }, classFiles.toString())
+
+        val binaryName = mainClassFile
+            .relativeTo(outputDirectory)
+            .toString()
+            .removeSuffix(".class")
+            .replace('/', '.')
+        val loadedResult = URLClassLoader(
+            arrayOf(outputDirectory.toUri().toURL()),
+            javaClass.classLoader,
+        ).use { loader ->
+            loader.loadClass(binaryName).getMethod("eval").invoke(null)
+        }
+        assertEquals(Pair("ok", "compiled"), loadedResult)
     }
 
     @Test

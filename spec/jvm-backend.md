@@ -35,6 +35,7 @@ CBPV pure lowering spike:
 - Closure classes store captured lexical variables in final `Object` fields and expose `Object apply(Object argument)`.
 - `CbpvJvmCompileResult` returns the main generated class plus support classes, which must be defined in the same classloader before execution.
 - The CLI `compile` command writes every generated class to disk under `<output-dir>/<internal-name>.class`, preserving JVM package directory layout.
+- CLI tests load the emitted class directory with a JVM classloader and invoke `eval()` to verify the generated main/support class layout works from disk, not only in memory.
 - Unsupported effectful forms (`perform`, `handle`, `resume`) produce diagnostics instead of bytecode.
 - Tests compare JVM execution against the first-order CBPV interpreter for the supported pure subset.
 - Tests verify lexical local binding restoration after shadowing.

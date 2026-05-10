@@ -76,6 +76,7 @@ Exit criteria:
 
 - `gradle :cli:run --args="check examples/cli/branch_closure.dx"` prints an `ok` line.
 - `gradle :cli:run --args="compile examples/cli/branch_closure.dx -d build/dx-cli-example"` writes `.class` files.
+- CLI tests load emitted classfiles back from disk and invoke `eval()`.
 - `gradle :cli:run --args="run examples/cli/branch_closure.dx"` prints `pair(ok, cli)`.
 - CLI tests cover success, source-rendered frontend/type diagnostics, and usage errors.
 
