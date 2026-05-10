@@ -111,7 +111,9 @@ Exit criteria:
 
 Status:
 
-- Identified by Levy CBPV alignment audit.
+- Implemented for the executable core, frontend lowering, interpreter, and pure
+  JVM vertical slice. Remaining work: explicit continuation/stack IR for
+  handler/async lowering.
 
 ## DX-006: Implement Effect Row Solver And Capability Evidence Model
 

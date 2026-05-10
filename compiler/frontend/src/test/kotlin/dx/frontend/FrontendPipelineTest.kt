@@ -140,6 +140,36 @@ class FrontendPipelineTest {
     }
 
     @Test
+    fun lowersLambdaApplicationThroughThunkForceAndComputationLambda() {
+        val result = pipeline.compile(SourceId("lambda.dx"), "(fun x: Str -> x)(\"Ada\")")
+
+        assertSuccess(result)
+        assertEquals(
+            TypedComputation.Bind(
+                name = "\$dx_fn_0",
+                first = TypedComputation.Return(
+                    dx.cbpv.TypedValue.ThunkValue(
+                        TypedComputation.Lambda(
+                            parameter = "x",
+                            parameterType = ValueType.StringType,
+                            body = TypedComputation.Return(dx.cbpv.TypedValue.Variable("x")),
+                        ),
+                    ),
+                ),
+                next = TypedComputation.Bind(
+                    name = "\$dx_arg_1",
+                    first = TypedComputation.Return(dx.cbpv.TypedValue.StringValue("Ada")),
+                    next = TypedComputation.Apply(
+                        function = TypedComputation.Force(dx.cbpv.TypedValue.Variable("\$dx_fn_0")),
+                        argument = dx.cbpv.TypedValue.Variable("\$dx_arg_1"),
+                    ),
+                ),
+            ),
+            result.computation,
+        )
+    }
+
+    @Test
     fun parsesTypedLambdaInValBinding() {
         val result = pipeline.compile(SourceId("lambda_val.dx"), "val id = fun x: Str -> x; id(\"Ada\")")
 

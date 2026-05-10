@@ -159,7 +159,7 @@ class CbpvPureJvmCompilerTest {
         assertJvmMatchesInterpreter(
             className = "dx/generated/cbpv/ApplyLambda",
             computation = TypedComputation.Apply(
-                function = TypedValue.Lambda(
+                function = TypedComputation.Lambda(
                     parameter = "x",
                     parameterType = ValueType.StringType,
                     body = TypedComputation.Return(TypedValue.Variable("x")),
@@ -176,14 +176,16 @@ class CbpvPureJvmCompilerTest {
             computation = TypedComputation.Bind(
                 name = "id",
                 first = TypedComputation.Return(
-                    TypedValue.Lambda(
-                        parameter = "x",
-                        parameterType = ValueType.StringType,
-                        body = TypedComputation.Return(TypedValue.Variable("x")),
+                    TypedValue.ThunkValue(
+                        TypedComputation.Lambda(
+                            parameter = "x",
+                            parameterType = ValueType.StringType,
+                            body = TypedComputation.Return(TypedValue.Variable("x")),
+                        ),
                     ),
                 ),
                 next = TypedComputation.Apply(
-                    function = TypedValue.Variable("id"),
+                    function = TypedComputation.Force(TypedValue.Variable("id")),
                     argument = TypedValue.StringValue("Ada"),
                 ),
             ),
@@ -200,19 +202,21 @@ class CbpvPureJvmCompilerTest {
                 next = TypedComputation.Bind(
                     name = "combine",
                     first = TypedComputation.Return(
-                        TypedValue.Lambda(
-                            parameter = "x",
-                            parameterType = ValueType.StringType,
-                            body = TypedComputation.Return(
-                                TypedValue.PairValue(
-                                    TypedValue.Variable("prefix"),
-                                    TypedValue.Variable("x"),
+                        TypedValue.ThunkValue(
+                            TypedComputation.Lambda(
+                                parameter = "x",
+                                parameterType = ValueType.StringType,
+                                body = TypedComputation.Return(
+                                    TypedValue.PairValue(
+                                        TypedValue.Variable("prefix"),
+                                        TypedValue.Variable("x"),
+                                    ),
                                 ),
                             ),
                         ),
                     ),
                     next = TypedComputation.Apply(
-                        function = TypedValue.Variable("combine"),
+                        function = TypedComputation.Force(TypedValue.Variable("combine")),
                         argument = TypedValue.StringValue("Lovelace"),
                     ),
                 ),
@@ -227,17 +231,19 @@ class CbpvPureJvmCompilerTest {
             computation = TypedComputation.Bind(
                 name = "inner",
                 first = TypedComputation.Apply(
-                    function = TypedValue.Lambda(
+                    function = TypedComputation.Lambda(
                         parameter = "x",
                         parameterType = ValueType.StringType,
                         body = TypedComputation.Return(
-                            TypedValue.Lambda(
-                                parameter = "y",
-                                parameterType = ValueType.StringType,
-                                body = TypedComputation.Return(
-                                    TypedValue.PairValue(
-                                        TypedValue.Variable("x"),
-                                        TypedValue.Variable("y"),
+                            TypedValue.ThunkValue(
+                                TypedComputation.Lambda(
+                                    parameter = "y",
+                                    parameterType = ValueType.StringType,
+                                    body = TypedComputation.Return(
+                                        TypedValue.PairValue(
+                                            TypedValue.Variable("x"),
+                                            TypedValue.Variable("y"),
+                                        ),
                                     ),
                                 ),
                             ),
@@ -246,7 +252,7 @@ class CbpvPureJvmCompilerTest {
                     argument = TypedValue.StringValue("Ada"),
                 ),
                 next = TypedComputation.Apply(
-                    function = TypedValue.Variable("inner"),
+                    function = TypedComputation.Force(TypedValue.Variable("inner")),
                     argument = TypedValue.StringValue("Lovelace"),
                 ),
             ),
@@ -272,7 +278,7 @@ class CbpvPureJvmCompilerTest {
         val result = compile(
             "dx/generated/cbpv/VerifyClosure",
             TypedComputation.Apply(
-                function = TypedValue.Lambda(
+                function = TypedComputation.Lambda(
                     parameter = "x",
                     parameterType = ValueType.StringType,
                     body = TypedComputation.Return(TypedValue.Variable("x")),

@@ -2,6 +2,7 @@ package dx.cli
 
 import dx.cbpv.TypeChecker
 import dx.cbpv.TypeEnvironment
+import dx.cbpv.allEffects
 import dx.frontend.FrontendPipeline
 import dx.frontend.SourceId
 import dx.jvm.CbpvPureJvmCompiler
@@ -123,8 +124,9 @@ class DxCli(
             return CompileAttempt.Failure(1)
         }
         val type = requireNotNull(typecheck.type)
-        if (type.effects.isNotEmpty()) {
-            err.println("error: CLI pure runner cannot execute unhandled effects: ${type.effects.sorted()}")
+        val effects = type.allEffects()
+        if (effects.isNotEmpty()) {
+            err.println("error: CLI pure runner cannot execute unhandled effects: ${effects.sorted()}")
             return CompileAttempt.Failure(1)
         }
 

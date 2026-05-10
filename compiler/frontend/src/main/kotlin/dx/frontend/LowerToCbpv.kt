@@ -17,7 +17,10 @@ data class LowerResult(
 )
 
 class CbpvLowerer {
+    private var nextTemporaryId = 0
+
     fun lower(module: DxModule): LowerResult {
+        nextTemporaryId = 0
         val diagnostics = mutableListOf<LowerDiagnostic>()
         val sourceMap = TypedSourceMapBuilder()
         val computation = lowerComputation(module.expression, diagnostics, sourceMap)
@@ -54,10 +57,27 @@ class CbpvLowerer {
                 value?.let { sourceMap.put(TypedComputation.Force(it), expr.span.toCoreSourceSpan()) }
             }
             is DxExpr.Apply -> {
-                val function = lowerValue(expr.function, diagnostics, sourceMap)
-                val argument = lowerValue(expr.argument, diagnostics, sourceMap)
+                val function = lowerComputation(expr.function, diagnostics, sourceMap)
+                val argument = lowerComputation(expr.argument, diagnostics, sourceMap)
                 if (function != null && argument != null) {
-                    sourceMap.put(TypedComputation.Apply(function, argument), expr.span.toCoreSourceSpan())
+                    val functionName = freshTemporary("fn")
+                    val argumentName = freshTemporary("arg")
+                    val forceFunction = sourceMap.put(
+                        TypedComputation.Force(TypedValue.Variable(functionName)),
+                        expr.function.span.toCoreSourceSpan(),
+                    )
+                    val apply = sourceMap.put(
+                        TypedComputation.Apply(forceFunction, TypedValue.Variable(argumentName)),
+                        expr.span.toCoreSourceSpan(),
+                    )
+                    val bindArgument = sourceMap.put(
+                        TypedComputation.Bind(argumentName, argument, apply),
+                        expr.span.toCoreSourceSpan(),
+                    )
+                    sourceMap.put(
+                        TypedComputation.Bind(functionName, function, bindArgument),
+                        expr.span.toCoreSourceSpan(),
+                    )
                 } else {
                     null
                 }
@@ -96,7 +116,12 @@ class CbpvLowerer {
                 val body = lowerComputation(expr.body, diagnostics, sourceMap)
                 body?.let {
                     sourceMap.put(
-                        TypedValue.Lambda(expr.parameter, expr.parameterType, it),
+                        TypedValue.ThunkValue(
+                            sourceMap.put(
+                                TypedComputation.Lambda(expr.parameter, expr.parameterType, it),
+                                expr.span.toCoreSourceSpan(),
+                            ),
+                        ),
                         expr.span.toCoreSourceSpan(),
                     )
                 }
@@ -119,6 +144,9 @@ class CbpvLowerer {
                 null
             }
         }
+
+    private fun freshTemporary(kind: String): String =
+        "\$dx_${kind}_${nextTemporaryId++}"
 }
 
 data class FrontendResult(

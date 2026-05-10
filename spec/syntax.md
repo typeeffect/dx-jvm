@@ -38,7 +38,7 @@ Initial value types in source:
 Current backend note:
 
 - `if` lowers through CBPV to JVM conditional branches in the pure subset.
-- Typed lambdas lower to JVM closure objects implementing the backend `DxFunction` ABI.
+- Typed lambdas lower through CBPV as thunked computation-level lambdas, then to JVM closure objects implementing the backend `DxFunction` ABI in the pure backend subset.
 - Direct lambda application, lambda values stored in variables, and lexical capture are supported in the current pure JVM subset.
 
 Frontend pipeline:

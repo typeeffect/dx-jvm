@@ -147,6 +147,8 @@ class TypedEvaluator {
                         }
                     is RuntimeValueResult.Failed -> RuntimeResult.Failed(thunk.error)
                 }
+            is TypedComputation.Lambda ->
+                continuation(RuntimeValue.ClosureValue(computation.parameter, computation.body, environment))
             is TypedComputation.Apply ->
                 apply(computation, environment, handlers, handlerContext, continuation)
             is TypedComputation.Perform ->
@@ -164,26 +166,23 @@ class TypedEvaluator {
         handlerContext: RuntimeHandlerContext?,
         continuation: (RuntimeValue) -> RuntimeResult,
     ): RuntimeResult {
-        val function = evalValue(computation.function, environment)
-        val argument = evalValue(computation.argument, environment)
-        if (function is RuntimeValueResult.Failed) {
-            return RuntimeResult.Failed(function.error)
-        }
-        if (argument is RuntimeValueResult.Failed) {
-            return RuntimeResult.Failed(argument.error)
-        }
-        val functionValue = (function as RuntimeValueResult.Done).value
-        val argumentValue = (argument as RuntimeValueResult.Done).value
-        return when (functionValue) {
-            is RuntimeValue.ClosureValue ->
-                eval(
-                    functionValue.body,
-                    functionValue.environment.withVariable(functionValue.parameter, argumentValue),
-                    handlers,
-                    handlerContext,
-                    continuation,
-                )
-            else -> RuntimeResult.Failed(RuntimeError.TypeMismatch("function", functionValue))
+        return eval(computation.function, environment, handlers, handlerContext) { functionValue ->
+            val argument = evalValue(computation.argument, environment)
+            if (argument is RuntimeValueResult.Failed) {
+                return@eval RuntimeResult.Failed(argument.error)
+            }
+            val argumentValue = (argument as RuntimeValueResult.Done).value
+            when (functionValue) {
+                is RuntimeValue.ClosureValue ->
+                    eval(
+                        functionValue.body,
+                        functionValue.environment.withVariable(functionValue.parameter, argumentValue),
+                        handlers,
+                        handlerContext,
+                        continuation,
+                    )
+                else -> RuntimeResult.Failed(RuntimeError.TypeMismatch("function", functionValue))
+            }
         }
     }
 
@@ -298,8 +297,6 @@ class TypedEvaluator {
                     ?: RuntimeValueResult.Failed(RuntimeError.UnknownVariable(value.name))
             is TypedValue.ThunkValue ->
                 RuntimeValueResult.Done(RuntimeValue.ThunkValue(value.computation, environment))
-            is TypedValue.Lambda ->
-                RuntimeValueResult.Done(RuntimeValue.ClosureValue(value.parameter, value.body, environment))
         }
 }
 

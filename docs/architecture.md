@@ -24,7 +24,7 @@ Key decisions:
 | Area | Recommendation |
 |---|---|
 | Compiler | New compiler in Kotlin, using ANTLR or a hand-written Pratt/recursive descent parser initially; ASM for bytecode. |
-| Core IR | Levy-style call-by-push-value is the normative IR direction: separate values from computations before effect, handler, async, and continuation lowering. The current prototype is a CBPV-inspired vertical slice and still has a documented function/lambda shortcut. |
+| Core IR | Levy-style call-by-push-value is the normative IR direction: separate values from computations before effect, handler, async, and continuation lowering. The current prototype now has computation-level functions/lambdas; explicit continuation/stack IR remains future work. |
 | JVM baseline | Java 21 minimum. Virtual threads are final in JDK 21. Structured concurrency is still preview as of JDK 26, so wrap it behind our runtime API. |
 | Effects | Nominal effect declarations with structural row-like effect sets. Public signatures include effects. |
 | Capabilities | Lexical capabilities, compiler tracked. Capabilities cannot escape their region unless declared safe/exportable. |
@@ -615,9 +615,9 @@ Levy alignment note:
 - Source-level function application lowers through explicit bind sequencing of
   the function expression and argument expression, then forces the function
   thunk.
-- The current Kotlin implementation still represents lambdas as value closures
-  for the pure CLI/JVM vertical slice. That is a known Stage -1 shortcut, not
-  the final CBPV design.
+- The current JVM backend still represents pure thunked lambda computations as
+  generated closure objects. That is a backend representation detail; the core
+  IR no longer treats lambda as a value form.
 
 CBPV core sketch:
 

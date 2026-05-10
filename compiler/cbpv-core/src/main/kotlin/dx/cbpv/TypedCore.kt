@@ -52,13 +52,35 @@ sealed interface ValueType {
     data object StringType : ValueType
     data class PairType(val first: ValueType, val second: ValueType) : ValueType
     data class ThunkType(val computation: ComputationType) : ValueType
-    data class FunctionType(val parameter: ValueType, val result: ComputationType) : ValueType
 }
 
-data class ComputationType(
-    val result: ValueType,
-    val effects: Set<EffectName> = emptySet(),
-)
+sealed interface ComputationType {
+    data class ReturnType(
+        val result: ValueType,
+        val effects: Set<EffectName> = emptySet(),
+    ) : ComputationType
+
+    data class FunctionType(
+        val parameter: ValueType,
+        val result: ComputationType,
+    ) : ComputationType
+
+    companion object {
+        operator fun invoke(
+            result: ValueType,
+            effects: Set<EffectName> = emptySet(),
+        ): ComputationType = ReturnType(result, effects)
+    }
+}
+
+fun ComputationType.returnTypeOrNull(): ComputationType.ReturnType? =
+    this as? ComputationType.ReturnType
+
+fun ComputationType.allEffects(): Set<EffectName> =
+    when (this) {
+        is ComputationType.ReturnType -> effects
+        is ComputationType.FunctionType -> result.allEffects()
+    }
 
 data class OperationSignature(
     val arguments: List<ValueType>,
@@ -89,11 +111,6 @@ sealed interface TypedValue {
     data class PairValue(val first: TypedValue, val second: TypedValue) : TypedValue
     data class Variable(val name: String) : TypedValue
     data class ThunkValue(val computation: TypedComputation) : TypedValue
-    data class Lambda(
-        val parameter: String,
-        val parameterType: ValueType,
-        val body: TypedComputation,
-    ) : TypedValue
 }
 
 sealed interface TypedComputation {
@@ -111,7 +128,13 @@ sealed interface TypedComputation {
     ) : TypedComputation
 
     data class Force(val thunk: TypedValue) : TypedComputation
-    data class Apply(val function: TypedValue, val argument: TypedValue) : TypedComputation
+    data class Lambda(
+        val parameter: String,
+        val parameterType: ValueType,
+        val body: TypedComputation,
+    ) : TypedComputation
+
+    data class Apply(val function: TypedComputation, val argument: TypedValue) : TypedComputation
     data class Perform(
         val effect: EffectName,
         val operation: OperationName,
@@ -162,6 +185,7 @@ sealed interface TypeDiagnostic {
 
     data object ForceNonThunk : TypeDiagnostic
     data object ApplyNonFunction : TypeDiagnostic
+    data class ExpectedReturnComputation(val actual: ComputationType) : TypeDiagnostic
     data object IfConditionNonBool : TypeDiagnostic
     data object ResumeOutsideHandlerClause : TypeDiagnostic
     data class ResumeTypeMismatch(
@@ -212,13 +236,19 @@ class TypeChecker(
         val type = result.type
 
         if (type != null) {
-            if (type.result != expectedResult) {
+            val returnType = type.returnTypeOrNull()
+            if (returnType == null) {
                 diagnostics += TypeDiagnosticReport(
-                    TypeDiagnostic.TypeMismatch(expectedResult, type.result),
+                    TypeDiagnostic.ExpectedReturnComputation(type),
+                    sourceMap.spanOf(computation),
+                )
+            } else if (returnType.result != expectedResult) {
+                diagnostics += TypeDiagnosticReport(
+                    TypeDiagnostic.TypeMismatch(expectedResult, returnType.result),
                     sourceMap.spanOf(computation),
                 )
             }
-            val unhandled = type.effects - allowedEffects
+            val unhandled = type.allEffects() - allowedEffects
             if (unhandled.isNotEmpty()) {
                 diagnostics += TypeDiagnosticReport(TypeDiagnostic.UnhandledEffects(unhandled), sourceMap.spanOf(computation))
             }
@@ -240,17 +270,30 @@ class TypeChecker(
             }
             is TypedComputation.Bind -> {
                 val firstType = inferComputation(computation.first, env, handlerContext, diagnostics)
+                val firstReturnType = firstType?.returnTypeOrNull()
                 if (firstType == null) {
+                    null
+                } else if (firstReturnType == null) {
+                    diagnostics.add(TypeDiagnostic.ExpectedReturnComputation(firstType), computation.first)
                     null
                 } else {
                     val nextType = inferComputation(
                         computation.next,
-                        env.withVariable(computation.name, firstType.result),
+                        env.withVariable(computation.name, firstReturnType.result),
                         handlerContext,
                         diagnostics,
                     )
-                    nextType?.let {
-                        ComputationType(it.result, firstType.effects + it.effects)
+                    when (nextType) {
+                        is ComputationType.ReturnType ->
+                            ComputationType(nextType.result, firstReturnType.effects + nextType.effects)
+                        is ComputationType.FunctionType ->
+                            if (firstReturnType.effects.isEmpty()) {
+                                nextType
+                            } else {
+                                diagnostics.add(TypeDiagnostic.ExpectedReturnComputation(nextType), computation.next)
+                                null
+                            }
+                        null -> null
                     }
                 }
             }
@@ -263,10 +306,22 @@ class TypeChecker(
                 val thenType = inferComputation(computation.thenBranch, env, handlerContext, diagnostics)
                 val elseType = inferComputation(computation.elseBranch, env, handlerContext, diagnostics)
                 if (thenType != null && elseType != null) {
-                    if (thenType.result != elseType.result) {
-                        diagnostics.add(TypeDiagnostic.TypeMismatch(thenType.result, elseType.result), computation.elseBranch)
+                    val thenReturn = thenType.returnTypeOrNull()
+                    val elseReturn = elseType.returnTypeOrNull()
+                    if (thenReturn != null && elseReturn != null) {
+                        if (thenReturn.result != elseReturn.result) {
+                            diagnostics.add(
+                                TypeDiagnostic.TypeMismatch(thenReturn.result, elseReturn.result),
+                                computation.elseBranch,
+                            )
+                        }
+                        ComputationType(thenReturn.result, thenReturn.effects + elseReturn.effects)
+                    } else if (thenType == elseType) {
+                        thenType
+                    } else {
+                        diagnostics.add(TypeDiagnostic.ExpectedReturnComputation(elseType), computation.elseBranch)
+                        null
                     }
-                    ComputationType(thenType.result, thenType.effects + elseType.effects)
                 } else {
                     null
                 }
@@ -281,11 +336,20 @@ class TypeChecker(
                     }
                 }
             }
+            is TypedComputation.Lambda -> {
+                val bodyType = inferComputation(
+                    computation.body,
+                    env.withVariable(computation.parameter, computation.parameterType),
+                    handlerContext = null,
+                    diagnostics,
+                )
+                bodyType?.let { ComputationType.FunctionType(computation.parameterType, it) }
+            }
             is TypedComputation.Apply -> {
-                val functionType = inferValue(computation.function, env, diagnostics)
+                val functionType = inferComputation(computation.function, env, handlerContext, diagnostics)
                 val argumentType = inferValue(computation.argument, env, diagnostics)
                 when (functionType) {
-                    is ValueType.FunctionType -> {
+                    is ComputationType.FunctionType -> {
                         if (argumentType != null && argumentType != functionType.parameter) {
                             diagnostics.add(TypeDiagnostic.TypeMismatch(functionType.parameter, argumentType), computation.argument)
                         }
@@ -293,7 +357,7 @@ class TypeChecker(
                     }
                     null -> null
                     else -> {
-                        diagnostics.add(TypeDiagnostic.ApplyNonFunction, computation.function)
+                        diagnostics.add(TypeDiagnostic.ApplyNonFunction, computation)
                         null
                     }
                 }
@@ -363,6 +427,11 @@ class TypeChecker(
 
         val bodyType = inferComputation(computation.body, env, outerHandlerContext, diagnostics)
             ?: return null
+        val bodyReturnType = bodyType.returnTypeOrNull()
+        if (bodyReturnType == null) {
+            diagnostics.add(TypeDiagnostic.ExpectedReturnComputation(bodyType), computation.body)
+            return null
+        }
 
         for (operationName in signature.operations.keys) {
             if (operationName !in computation.handler.clauses) {
@@ -394,20 +463,25 @@ class TypeChecker(
             val clauseType = inferComputation(
                 clause.body,
                 clauseEnv,
-                HandlerContext(operation.result, bodyType.result),
+                HandlerContext(operation.result, bodyReturnType.result),
                 diagnostics,
             )
             if (clauseType != null) {
-                if (clauseType.result != bodyType.result) {
-                    diagnostics.add(TypeDiagnostic.TypeMismatch(bodyType.result, clauseType.result), clause.body)
+                val clauseReturnType = clauseType.returnTypeOrNull()
+                if (clauseReturnType == null) {
+                    diagnostics.add(TypeDiagnostic.ExpectedReturnComputation(clauseType), clause.body)
+                    continue
                 }
-                clauseEffects = clauseEffects + clauseType.effects
+                if (clauseReturnType.result != bodyReturnType.result) {
+                    diagnostics.add(TypeDiagnostic.TypeMismatch(bodyReturnType.result, clauseReturnType.result), clause.body)
+                }
+                clauseEffects = clauseEffects + clauseReturnType.effects
             }
         }
 
         return ComputationType(
-            result = bodyType.result,
-            effects = (bodyType.effects - signature.name) + clauseEffects,
+            result = bodyReturnType.result,
+            effects = (bodyReturnType.effects - signature.name) + clauseEffects,
         )
     }
 
@@ -439,15 +513,6 @@ class TypeChecker(
             is TypedValue.ThunkValue -> {
                 val computationType = inferComputation(value.computation, env, handlerContext = null, diagnostics)
                 computationType?.let { ValueType.ThunkType(it) }
-            }
-            is TypedValue.Lambda -> {
-                val bodyType = inferComputation(
-                    value.body,
-                    env.withVariable(value.parameter, value.parameterType),
-                    handlerContext = null,
-                    diagnostics,
-                )
-                bodyType?.let { ValueType.FunctionType(value.parameterType, it) }
             }
         }
 }

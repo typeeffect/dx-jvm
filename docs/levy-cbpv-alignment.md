@@ -12,8 +12,8 @@ Source:
 
 ## Verdict
 
-dx is correctly moving in the CBPV direction, but the current executable core is
-not yet full Levy-style CBPV.
+dx is correctly moving in the CBPV direction, and the executable core now
+implements the main function/lambda correction identified by the first audit.
 
 Aligned:
 
@@ -23,12 +23,17 @@ Aligned:
 - Effects live on computations, not on pure values.
 - One-shot resumption checks fit the production policy for handlers and async.
 
-Main gap:
+Resolved since the first audit:
 
-- The prototype still represents functions/lambdas as value-level closures.
-  Levy-style CBPV treats function types and lambdas as computation forms. For
-  dx this is acceptable as a Stage -1 vertical-slice shortcut, but it must not
-  become the final core semantics.
+- Functions/lambdas are no longer core value forms. Function types are
+  computation types, lambdas are typed computations, and source-level lambdas
+  lower to thunked computation values.
+
+Remaining gap:
+
+- The JVM pure backend still represents pure thunked lambda computations with
+  generated JVM closure objects. This is a backend representation shortcut, not
+  a core semantic shortcut.
 
 ## Audit Table
 
@@ -36,13 +41,13 @@ Main gap:
 |---|---|---|---|
 | Distinguish value judgments from computation judgments. | `TypedValue` and `TypedComputation` are separate. | Low. | Keep this split as non-negotiable in all frontend lowering and backend IR. |
 | Context variables bind values. | Type environments bind value types. | Low. | Continue rejecting computation-only terms in value positions. |
-| Computations return values through an `F A`-like type. | `ComputationType(resultType, effects)` represents this. | Medium: the `F` constructor is implicit. | Make `F` explicit in the spec and eventually in core names. Effects may remain attached to `F`. |
+| Computations return values through an `F A`-like type. | `ComputationType.ReturnType(resultType, effects)` represents this. | Low: Kotlin name is explicit enough for now. | Keep `F` explicit in specs; effects remain attached to `F`. |
 | Thunks are values of `U C`. | `ValueType.ThunkType(ComputationType)` exists. | Low. | Keep `U` explicit in the core. Do not erase thunks during early effect lowering. |
 | `force` is a computation. | `TypedComputation.Force` exists. | Low. | Preserve this invariant in parser lowering and bytecode lowering. |
-| Sequencing is explicit. | `Bind` is explicit; frontend lowering emits it for `val`. | Medium: application still has a direct closure path. | Lower general source calls through bind sequencing of function and argument expressions. |
-| Function types are computation types. | Current `FunctionType` is a value type. | High semantic mismatch. | Introduce computation-level function types `A -> C`. Source functions lower to thunked computation values. |
-| Lambda is a computation. | Current `Lambda` is a value. | High semantic mismatch. | Move lambda to computation IR in the next core revision. |
-| CBV functions translate to thunked computations. | Current closures are direct values. | Medium for pure code, high once async/effects enter calls. | Use `U(A -> F B)` as the internal representation for source-level function values. |
+| Sequencing is explicit. | `Bind` is explicit; frontend lowering emits it for `val` and function application. | Low. | Keep general source calls lowered through bind sequencing of function and argument expressions. |
+| Function types are computation types. | `ComputationType.FunctionType`. | Low. | Keep functions out of value types. |
+| Lambda is a computation. | `TypedComputation.Lambda`. | Low. | Keep lambda out of value forms. |
+| CBV functions translate to thunked computations. | Source lambdas lower to `return thunk (lambda ...)`. | Low. | Keep `U(A -> F B)` as the internal representation for source-level function values. |
 | Stacks/continuations provide the right semantic place for control. | Interpreter uses host calls plus runtime one-shot checks. | Medium for async/handler lowering. | Add explicit continuation/stack IR after capability elaboration. |
 | State/control effects must preserve evaluation order. | Effects are computation-level and safety classes exist. | Medium around future multi-shot and Java mutation. | Keep multi-shot out of v1; classify replayability before any continuation cloning. |
 
@@ -68,18 +73,16 @@ Main gap:
 
 ## Implementation Follow-Up
 
-Immediate issue:
+Remaining immediate issue:
 
-- Align the core IR with explicit `F`/`U` and computation-level functions.
+- Add explicit continuation/stack IR after capability elaboration.
 
 Acceptance criteria:
 
-- The spec grammar has value types and computation types matching the normative
-  CBPV shape.
-- Source lambdas lower to `return thunk (lambda ...)`.
-- Source application lowers through two binds and a force.
-- Existing pure closure JVM tests still pass through the new representation.
-- Negative tests reject effectful computation terms in value-only positions.
+- Handler and async lowering stop relying on host interpreter continuations.
+- Source spans survive continuation/state-machine lowering.
+- One-shot resume and discontinue paths are explicit in lowered IR.
 
 Until that work is complete, docs should describe the current compiler as a
-"CBPV-inspired vertical slice", not as a finished CBPV implementation.
+"CBPV-inspired vertical slice", not as a finished handler/async lowering
+implementation.

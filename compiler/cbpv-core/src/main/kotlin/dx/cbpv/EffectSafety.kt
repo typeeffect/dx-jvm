@@ -143,7 +143,7 @@ class EffectPolicyChecker(
     private val registry: EffectSafetyRegistry = EffectSafetyRegistry.standard,
 ) {
     fun check(type: ComputationType, policy: EffectPolicy): EffectPolicyReport {
-        val diagnostics = type.effects
+        val diagnostics = type.allEffects()
             .sorted()
             .mapNotNull { effect ->
                 val safetyClass = registry.safetyClass(effect)

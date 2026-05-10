@@ -64,7 +64,7 @@ class TypedEvaluatorTest {
             name = "captured",
             first = TypedComputation.Return(TypedValue.StringValue("closed")),
             next = TypedComputation.Apply(
-                function = TypedValue.Lambda(
+                function = TypedComputation.Lambda(
                     parameter = "ignored",
                     parameterType = ValueType.UnitType,
                     body = TypedComputation.Return(TypedValue.Variable("captured")),
@@ -264,7 +264,14 @@ class TypedEvaluatorTest {
     fun applyRejectsNonFunction() {
         assertEquals(
             RuntimeError.TypeMismatch("function", RuntimeValue.StringValue("no")),
-            assertFailed(evaluator.eval(TypedComputation.Apply(TypedValue.StringValue("no"), TypedValue.UnitValue))),
+            assertFailed(
+                evaluator.eval(
+                    TypedComputation.Apply(
+                        TypedComputation.Return(TypedValue.StringValue("no")),
+                        TypedValue.UnitValue,
+                    ),
+                ),
+            ),
         )
     }
 

@@ -108,9 +108,11 @@ class CbpvPureJvmCompiler {
             is TypedComputation.Force -> {
                 when (val thunk = computation.thunk) {
                     is TypedValue.ThunkValue -> emitComputation(thunk.computation, method, context, state, diagnostics)
+                    is TypedValue.Variable -> emitLoadVariable(thunk.name, method, context, diagnostics)
                     else -> diagnostics += CbpvJvmDiagnostic.UnsupportedValue(thunk::class.simpleName ?: "unknown")
                 }
             }
+            is TypedComputation.Lambda -> emitLambda(computation, method, context, state, diagnostics)
             is TypedComputation.Apply -> emitApply(computation, method, context, state, diagnostics)
             is TypedComputation.Perform -> diagnostics += CbpvJvmDiagnostic.UnsupportedComputation("Perform")
             is TypedComputation.Handle -> diagnostics += CbpvJvmDiagnostic.UnsupportedComputation("Handle")
@@ -146,7 +148,7 @@ class CbpvPureJvmCompiler {
         state: CompilationState,
         diagnostics: MutableList<CbpvJvmDiagnostic>,
     ) {
-        emitValue(computation.function, method, context, state, diagnostics)
+        emitComputation(computation.function, method, context, state, diagnostics)
         method.visitTypeInsn(CHECKCAST, DX_FUNCTION_INTERNAL_NAME)
         emitValue(computation.argument, method, context, state, diagnostics)
         method.visitMethodInsn(
@@ -192,13 +194,16 @@ class CbpvPureJvmCompiler {
             is TypedValue.Variable -> {
                 emitLoadVariable(value.name, method, context, diagnostics)
             }
-            is TypedValue.ThunkValue -> diagnostics += CbpvJvmDiagnostic.UnsupportedValue("ThunkValue")
-            is TypedValue.Lambda -> emitLambda(value, method, context, state, diagnostics)
+            is TypedValue.ThunkValue ->
+                when (val computation = value.computation) {
+                    is TypedComputation.Lambda -> emitLambda(computation, method, context, state, diagnostics)
+                    else -> diagnostics += CbpvJvmDiagnostic.UnsupportedValue("ThunkValue")
+                }
         }
     }
 
     private fun emitLambda(
-        lambda: TypedValue.Lambda,
+        lambda: TypedComputation.Lambda,
         method: MethodVisitor,
         context: EmitContext,
         state: CompilationState,
@@ -223,7 +228,7 @@ class CbpvPureJvmCompiler {
     }
 
     private fun generateClosureClass(
-        lambda: TypedValue.Lambda,
+        lambda: TypedComputation.Lambda,
         captures: List<String>,
         state: CompilationState,
         diagnostics: MutableList<CbpvJvmDiagnostic>,
@@ -270,7 +275,7 @@ class CbpvPureJvmCompiler {
     private fun emitClosureApply(
         writer: ClassWriter,
         closureInternalName: String,
-        lambda: TypedValue.Lambda,
+        lambda: TypedComputation.Lambda,
         captures: List<String>,
         state: CompilationState,
         diagnostics: MutableList<CbpvJvmDiagnostic>,
@@ -387,6 +392,7 @@ private fun freeVariables(computation: TypedComputation): Set<String> =
                 freeVariables(computation.thenBranch) +
                 freeVariables(computation.elseBranch)
         is TypedComputation.Force -> freeVariables(computation.thunk)
+        is TypedComputation.Lambda -> freeVariables(computation.body) - computation.parameter
         is TypedComputation.Apply -> freeVariables(computation.function) + freeVariables(computation.argument)
         is TypedComputation.Perform -> computation.arguments.flatMapTo(mutableSetOf()) { freeVariables(it) }
         is TypedComputation.Handle -> freeVariables(computation.body) + computation.handler.clauses.values.flatMapTo(
@@ -404,5 +410,4 @@ private fun freeVariables(value: TypedValue): Set<String> =
         is TypedValue.PairValue -> freeVariables(value.first) + freeVariables(value.second)
         is TypedValue.Variable -> setOf(value.name)
         is TypedValue.ThunkValue -> freeVariables(value.computation)
-        is TypedValue.Lambda -> freeVariables(value.body) - value.parameter
     }

@@ -1,6 +1,7 @@
 package dx.cli
 
 import dx.cbpv.CoreSourceSpan
+import dx.cbpv.ComputationType
 import dx.cbpv.TypeDiagnostic
 import dx.cbpv.TypeDiagnosticReport
 import dx.cbpv.ValueType
@@ -86,6 +87,7 @@ class DxDiagnosticRenderer(
             is TypeDiagnostic.ArityMismatch -> "expected $expected argument(s), found $actual"
             TypeDiagnostic.ForceNonThunk -> "`force` expects a thunk"
             TypeDiagnostic.ApplyNonFunction -> "application expects a function"
+            is TypeDiagnostic.ExpectedReturnComputation -> "expected computation returning a value, found ${actual.render()}"
             TypeDiagnostic.IfConditionNonBool -> "`if` condition must be Bool"
             TypeDiagnostic.ResumeOutsideHandlerClause -> "`resume` is only valid inside a handler clause"
             is TypeDiagnostic.ResumeTypeMismatch -> "resume expected ${expected.render()}, found ${actual.render()}"
@@ -99,8 +101,13 @@ class DxDiagnosticRenderer(
             ValueType.IntType -> "Int"
             ValueType.StringType -> "Str"
             is ValueType.PairType -> "Pair<${first.render()}, ${second.render()}>"
-            is ValueType.ThunkType -> "Thunk<${computation.result.render()}>"
-            is ValueType.FunctionType -> "(${parameter.render()}) -> ${result.result.render()}"
+            is ValueType.ThunkType -> "Thunk<${computation.render()}>"
+        }
+
+    private fun ComputationType.render(): String =
+        when (this) {
+            is ComputationType.ReturnType -> "F ${result.render()}"
+            is ComputationType.FunctionType -> "(${parameter.render()}) -> ${result.render()}"
         }
 
     private fun String.lineAt(lineNumber: Int): String =

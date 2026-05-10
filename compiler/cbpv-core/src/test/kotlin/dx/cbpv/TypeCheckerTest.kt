@@ -334,7 +334,7 @@ class TypeCheckerTest {
 
     @Test
     fun lambdaApplicationReturnsFunctionComputationType() {
-        val lambda = TypedValue.Lambda(
+        val lambda = TypedComputation.Lambda(
             parameter = "x",
             parameterType = ValueType.IntType,
             body = TypedComputation.Return(TypedValue.Variable("x")),
@@ -347,8 +347,25 @@ class TypeCheckerTest {
     }
 
     @Test
+    fun lambdaIsAComputationNotAValueType() {
+        val lambda = TypedComputation.Lambda(
+            parameter = "x",
+            parameterType = ValueType.IntType,
+            body = TypedComputation.Return(TypedValue.Variable("x")),
+        )
+
+        assertEquals(
+            ComputationType.FunctionType(
+                parameter = ValueType.IntType,
+                result = ComputationType(ValueType.IntType),
+            ),
+            checker.infer(lambda).type,
+        )
+    }
+
+    @Test
     fun lambdaApplicationChecksArgumentType() {
-        val lambda = TypedValue.Lambda(
+        val lambda = TypedComputation.Lambda(
             parameter = "x",
             parameterType = ValueType.IntType,
             body = TypedComputation.Return(TypedValue.Variable("x")),

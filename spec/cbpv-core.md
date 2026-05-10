@@ -1,10 +1,8 @@
 # dx CBPV Core Spec
 
 Status: draft. The current implementation is a CBPV-inspired executable
-semantics with one known prototype shortcut: functions/lambdas are currently
-represented as value closures. Full Levy-style CBPV treats function types and
-lambdas as computation forms; that is the normative direction for the next core
-revision.
+semantics with explicit value/computation types, thunked computation values, and
+computation-level functions/lambdas.
 
 Scope:
 
@@ -24,7 +22,7 @@ Stage -1 implementation:
 
 - Module: `compiler/cbpv-core`.
 - Implementation language: Kotlin/JVM.
-- Current executable forms: `return`, `bind`, `if`, `thunk`, `force`, prototype value-closure function application, `perform`, `handle`.
+- Current executable forms: `return`, `bind`, `if`, `thunk`, `force`, computation-level lambda/application, `perform`, `handle`.
 - Current safety checks: unhandled effect, missing operation, type mismatch, one-shot double resume, resume after handler scope exit.
 - Current semantic test target: at least 20 focused tests before backend lowering depends on these semantics.
 
@@ -73,22 +71,23 @@ Current prototype mapping:
 | `F A` | `ComputationType(resultType, effects)` | Partially aligned; spelling also carries effect set |
 | `U C` | `ValueType.ThunkType(ComputationType)` | Aligned |
 | `thunk`/`force` | `TypedValue.ThunkValue` and `TypedComputation.Force` | Aligned |
-| Function types as computation types | `ValueType.FunctionType` closure values | Gap |
-| Lambda as computation | `TypedValue.Lambda` | Gap |
-| CBV source function translation | Direct closure value | Gap |
+| Function types as computation types | `ComputationType.FunctionType` | Aligned |
+| Lambda as computation | `TypedComputation.Lambda` | Aligned |
+| CBV source function translation | `return thunk (lambda ...)` | Aligned |
 | Explicit stack/continuation IR | Host interpreter plus one-shot resumption checks | Stage -1 only |
 
 Required next-core changes:
 
-1. Introduce explicit type constructors for `F` and `U` in the spec and align
-   Kotlin names with them. The effect set may remain attached to `F A`.
-2. Move function type from value types to computation types:
+1. Continue aligning Kotlin names with explicit `F` and `U` terminology. The
+   implementation currently spells `F A` as `ComputationType.ReturnType` and
+   `U C` as `ValueType.ThunkType`.
+2. Keep function type in computation types:
 
    ```text
    Computation types C ::= F A ! Eff | A -> C | ...
    ```
 
-3. Represent lambda as a computation:
+3. Keep lambda represented as a computation:
 
    ```text
    Gamma, x : A |-c M : C
@@ -125,5 +124,7 @@ Required next-core changes:
 7. Add negative tests that reject effectful computations in value-only
    positions, instead of silently compiling them through hidden sequencing.
 
-This keeps the current vertical slice useful while preventing it from becoming
-the final semantic model by accident.
+The current JVM backend still uses generated JVM closure objects as the runtime
+representation for pure thunked lambda computations. That is an implementation
+strategy for the pure vertical slice, not a return to value-level lambda
+semantics in the core.
