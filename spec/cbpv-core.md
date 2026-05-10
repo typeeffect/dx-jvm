@@ -33,4 +33,5 @@ Typed core implementation:
 - `perform` infers the operation result type and adds the effect to the computation row.
 - `handle` eliminates the handled effect and keeps effects introduced by handler clauses.
 - `resume` is only valid inside a handler clause and must resume with the operation result type.
+- `resume` returns the handled computation result back to the handler clause; this makes double-resume programs expressible in the executable core and lets the one-shot runtime check reject them.
 - `checkClosed` verifies that inferred effects are covered by an explicit allowed effect set.
