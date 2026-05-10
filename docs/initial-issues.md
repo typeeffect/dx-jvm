@@ -17,6 +17,12 @@ Exit criteria:
 - Parser accepts the MVP syntax subset.
 - Parser emits stable source spans usable by diagnostics and formatter.
 
+Status:
+
+- Initial hand-written lexer/parser implemented in `compiler/frontend`.
+- Supports literals, variables, `val` sequences, blocks, pairs, thunks, and force.
+- Includes frontend-to-CBPV lowering and an end-to-end interpreter/JVM equivalence test for the supported pure subset.
+
 ## DX-002: Define CBPV Core executable semantics
 
 Goal: define and implement a tiny executable semantics for CBPV Core before backend work hides semantic bugs.

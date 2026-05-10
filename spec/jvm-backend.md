@@ -34,3 +34,9 @@ CBPV pure lowering spike:
 - Unsupported effectful forms (`perform`, `handle`, `resume`) produce diagnostics instead of bytecode.
 - Tests compare JVM execution against the first-order CBPV interpreter for the supported pure subset.
 - Tests verify lexical local binding restoration after shadowing.
+
+Frontend-to-JVM vertical slice:
+
+- `compiler/frontend` can lower a small `.dx` source subset to typed CBPV.
+- Tests typecheck the lowered CBPV, execute it in the CBPV interpreter, compile it to JVM bytecode, execute the generated class, and compare the results.
+- This is the first end-to-end semantic contract for the JVM line.
