@@ -13,8 +13,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import kotlin.io.path.absolute
+import kotlin.io.path.createDirectories
 import kotlin.io.path.name
 import kotlin.io.path.readText
+import kotlin.io.path.writeBytes
 
 class DxCli(
     private val out: PrintStream = System.out,
@@ -28,6 +30,7 @@ class DxCli(
 
         return when (args[0]) {
             "check" -> checkScript(args.drop(1))
+            "compile" -> compileToDisk(args.drop(1))
             "run" -> runScript(args.drop(1))
             else -> {
                 err.println("error: unknown command `${args[0]}`")
@@ -35,6 +38,18 @@ class DxCli(
                 2
             }
         }
+    }
+
+    private fun compileToDisk(args: List<String>): Int {
+        val parsed = parseCompileArgs(args) ?: return 2
+        val compiled = when (val result = compileScript(listOf(parsed.source.toString()), commandName = "compile")) {
+            is CompileAttempt.Success -> result.script
+            is CompileAttempt.Failure -> return result.exitCode
+        }
+
+        val written = writeClasses(compiled.classes, parsed.outputDirectory)
+        written.forEach { path -> out.println("wrote $path") }
+        return 0
     }
 
     private fun checkScript(args: List<String>): Int {
@@ -58,6 +73,25 @@ class DxCli(
         val result = mainClass.getMethod("eval").invoke(null)
         out.println(DxValuePrinter.render(result))
         return 0
+    }
+
+    private fun parseCompileArgs(args: List<String>): CompileArgs? {
+        if (args.size != 3 || args[1] != "-d") {
+            err.println("error: `compile` expects `<file.dx> -d <output-dir>`")
+            printUsage(err)
+            return null
+        }
+        return CompileArgs(source = Path.of(args[0]), outputDirectory = Path.of(args[2]))
+    }
+
+    private fun writeClasses(classes: List<GeneratedClass>, outputDirectory: Path): List<Path> {
+        outputDirectory.createDirectories()
+        return classes.map { generatedClass ->
+            val outputPath = outputDirectory.resolve("${generatedClass.internalName}.class")
+            outputPath.parent?.createDirectories()
+            outputPath.writeBytes(generatedClass.bytecode)
+            outputPath
+        }
     }
 
     private fun compileScript(args: List<String>, commandName: String): CompileAttempt {
@@ -114,6 +148,7 @@ class DxCli(
             """
             usage:
               dx check <file.dx>
+              dx compile <file.dx> -d <output-dir>
               dx run <file.dx>
             """.trimIndent(),
         )
@@ -128,6 +163,11 @@ class DxCli(
         return "dx/generated/cli/Script_$digest"
     }
 }
+
+private data class CompileArgs(
+    val source: Path,
+    val outputDirectory: Path,
+)
 
 private sealed interface CompileAttempt {
     data class Success(val script: CompiledScript) : CompileAttempt

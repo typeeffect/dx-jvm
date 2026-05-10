@@ -18,6 +18,7 @@ Initial goal:
 Current CLI behavior:
 
 - `dx check <file.dx>` returns exit code `0` after successful frontend lowering, typechecking, pure-effect validation, and JVM bytecode generation.
+- `dx compile <file.dx> -d <output-dir>` additionally writes generated classfiles and prints each written path.
 - `dx run <file.dx>` additionally loads generated classes, invokes `eval`, and prints the result.
 - Frontend diagnostics render as `file:line:column: error: ...` followed by the source line and caret marker.
 - Type diagnostics render with the same source-line format when frontend lowering produced a `TypedSourceMap`.

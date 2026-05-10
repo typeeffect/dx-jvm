@@ -23,6 +23,7 @@ through the typed CBPV checker and JVM bytecode backend.
 
 ```bash
 gradle :cli:run --args="check examples/cli/branch_closure.dx"
+gradle :cli:run --args="compile examples/cli/branch_closure.dx -d build/dx-cli-example"
 gradle :cli:run --args="run examples/cli/branch_closure.dx"
 ```
 
@@ -31,3 +32,6 @@ Expected `run` output:
 ```text
 pair(ok, cli)
 ```
+
+`compile` writes JVM `.class` files under the requested output directory using
+the generated JVM internal names, including closure support classes.

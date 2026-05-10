@@ -34,6 +34,7 @@ CBPV pure lowering spike:
 - Typed lambdas lower to generated closure classes implementing `dx.jvm.DxFunction`.
 - Closure classes store captured lexical variables in final `Object` fields and expose `Object apply(Object argument)`.
 - `CbpvJvmCompileResult` returns the main generated class plus support classes, which must be defined in the same classloader before execution.
+- The CLI `compile` command writes every generated class to disk under `<output-dir>/<internal-name>.class`, preserving JVM package directory layout.
 - Unsupported effectful forms (`perform`, `handle`, `resume`) produce diagnostics instead of bytecode.
 - Tests compare JVM execution against the first-order CBPV interpreter for the supported pure subset.
 - Tests verify lexical local binding restoration after shadowing.

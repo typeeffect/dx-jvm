@@ -3,6 +3,9 @@ package dx.cli
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.file.Files
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,6 +62,36 @@ class DxCliTest {
     }
 
     @Test
+    fun compileWritesMainAndSupportClasses() {
+        val script = Files.createTempFile("dx-cli-compile-", ".dx")
+        script.writeText(
+            """
+            val prefix = "ok";
+            val choose = fun x: Str -> pair(prefix, x);
+            choose("compiled")
+            """.trimIndent(),
+        )
+        val outputDirectory = Files.createTempDirectory("dx-cli-classes-")
+
+        val output = ByteArrayOutputStream()
+        val error = ByteArrayOutputStream()
+        val exit = DxCli(PrintStream(output), PrintStream(error)).run(
+            arrayOf("compile", script.toString(), "-d", outputDirectory.toString()),
+        )
+
+        assertEquals(0, exit)
+        assertEquals("", error.toString())
+        assertTrue(output.toString().contains("wrote "), output.toString())
+
+        val classFiles = Files.walk(outputDirectory).use { paths ->
+            paths.filter { it.isRegularFile() && it.extension == "class" }.toList()
+        }
+        assertEquals(2, classFiles.size)
+        assertTrue(classFiles.any { it.name.startsWith("Script_") }, classFiles.toString())
+        assertTrue(classFiles.any { it.name.contains("\$Lambda") }, classFiles.toString())
+    }
+
+    @Test
     fun checkReportsParseDiagnosticsWithSourceSnippet() {
         val script = Files.createTempFile("dx-cli-parse-bad-", ".dx")
         script.writeText("val x = 1 x")
@@ -98,5 +131,16 @@ class DxCliTest {
         assertEquals(2, exit)
         assertTrue(output.toString().contains("dx run <file.dx>"), output.toString())
         assertEquals("", error.toString())
+    }
+
+    @Test
+    fun compileRequiresOutputDirectory() {
+        val output = ByteArrayOutputStream()
+        val error = ByteArrayOutputStream()
+        val exit = DxCli(PrintStream(output), PrintStream(error)).run(arrayOf("compile", "missing.dx"))
+
+        assertEquals(2, exit)
+        assertEquals("", output.toString())
+        assertTrue(error.toString().contains("dx compile <file.dx> -d <output-dir>"), error.toString())
     }
 }

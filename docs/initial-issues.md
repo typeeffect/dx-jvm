@@ -65,14 +65,17 @@ Deliverables:
 
 - `cli` Gradle module.
 - `dx check <file.dx>` command.
+- `dx compile <file.dx> -d <output-dir>` command.
 - `dx run <file.dx>` command.
 - Script execution through frontend lowering, CBPV typechecking, pure JVM backend, generated class loading, and `eval`.
+- Disk classfile emission for the generated main class and support classes.
 - Source-rendered frontend and type diagnostics.
 - Checked-in example script.
 
 Exit criteria:
 
 - `gradle :cli:run --args="check examples/cli/branch_closure.dx"` prints an `ok` line.
+- `gradle :cli:run --args="compile examples/cli/branch_closure.dx -d build/dx-cli-example"` writes `.class` files.
 - `gradle :cli:run --args="run examples/cli/branch_closure.dx"` prints `pair(ok, cli)`.
 - CLI tests cover success, source-rendered frontend/type diagnostics, and usage errors.
 
