@@ -17,10 +17,11 @@ Initial goal:
 
 Current CLI behavior:
 
-- `dx run <file.dx>` returns exit code `0` only after successful frontend lowering, typechecking, pure-effect validation, JVM bytecode generation, class loading, and `eval` execution.
-- Frontend diagnostics are grouped under `frontend diagnostics:`.
-- Type diagnostics are grouped under `type diagnostics:`.
-- JVM backend diagnostics are grouped under `jvm backend diagnostics:`.
+- `dx check <file.dx>` returns exit code `0` after successful frontend lowering, typechecking, pure-effect validation, and JVM bytecode generation.
+- `dx run <file.dx>` additionally loads generated classes, invokes `eval`, and prints the result.
+- Frontend diagnostics render as `file:line:column: error: ...` followed by the source line and caret marker.
+- Type diagnostics are grouped under `type diagnostics:` and remain structural until typed CBPV carries source spans.
+- JVM backend diagnostics are grouped under `jvm backend diagnostics:` and remain structural for now.
 - Invalid usage and missing files return exit code `2`.
 - Compile/runtime rejection returns exit code `1`.
-- Diagnostic rendering is currently structural Kotlin data output; source-spanned, user-facing messages are still future work.
+- Source-spanned type and JVM backend diagnostics are future work.

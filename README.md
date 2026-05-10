@@ -22,10 +22,11 @@ The CLI currently supports the pure executable frontend subset and runs scripts
 through the typed CBPV checker and JVM bytecode backend.
 
 ```bash
+gradle :cli:run --args="check examples/cli/branch_closure.dx"
 gradle :cli:run --args="run examples/cli/branch_closure.dx"
 ```
 
-Expected output:
+Expected `run` output:
 
 ```text
 pair(ok, cli)

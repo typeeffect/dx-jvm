@@ -40,7 +40,37 @@ class DxCliTest {
 
         assertEquals(1, exit)
         assertEquals("", output.toString())
-        assertTrue(error.toString().contains("frontend diagnostics:"), error.toString())
+        assertTrue(error.toString().contains(":1:1: error: unterminated string literal"), error.toString())
+        assertTrue(error.toString().contains("^"), error.toString())
+    }
+
+    @Test
+    fun checkCompilesWithoutExecutingScript() {
+        val script = Files.createTempFile("dx-cli-check-", ".dx")
+        script.writeText("pair(\"checked\", 1)")
+
+        val output = ByteArrayOutputStream()
+        val error = ByteArrayOutputStream()
+        val exit = DxCli(PrintStream(output), PrintStream(error)).run(arrayOf("check", script.toString()))
+
+        assertEquals(0, exit)
+        assertEquals("ok: $script\n", output.toString())
+        assertEquals("", error.toString())
+    }
+
+    @Test
+    fun checkReportsParseDiagnosticsWithSourceSnippet() {
+        val script = Files.createTempFile("dx-cli-parse-bad-", ".dx")
+        script.writeText("val x = 1 x")
+
+        val output = ByteArrayOutputStream()
+        val error = ByteArrayOutputStream()
+        val exit = DxCli(PrintStream(output), PrintStream(error)).run(arrayOf("check", script.toString()))
+
+        assertEquals(1, exit)
+        assertEquals("", output.toString())
+        assertTrue(error.toString().contains(":1:11: error: expected `;` or `Eof`, found identifier `x`"), error.toString())
+        assertTrue(error.toString().contains("val x = 1 x"), error.toString())
     }
 
     @Test

@@ -27,6 +27,7 @@ class DxCli(
         }
 
         return when (args[0]) {
+            "check" -> checkScript(args.drop(1))
             "run" -> runScript(args.drop(1))
             else -> {
                 err.println("error: unknown command `${args[0]}`")
@@ -36,28 +37,48 @@ class DxCli(
         }
     }
 
+    private fun checkScript(args: List<String>): Int {
+        return when (val result = compileScript(args, commandName = "check")) {
+            is CompileAttempt.Success -> {
+                out.println("ok: ${result.script.path}")
+                0
+            }
+            is CompileAttempt.Failure -> result.exitCode
+        }
+    }
+
     private fun runScript(args: List<String>): Int {
+        val compiled = when (val result = compileScript(args, commandName = "run")) {
+            is CompileAttempt.Success -> result.script
+            is CompileAttempt.Failure -> return result.exitCode
+        }
+
+        val classes = GeneratedClassLoader().defineAll(compiled.classes)
+        val mainClass = requireNotNull(classes[compiled.internalName]) { "generated main class was not loaded" }
+        val result = mainClass.getMethod("eval").invoke(null)
+        out.println(DxValuePrinter.render(result))
+        return 0
+    }
+
+    private fun compileScript(args: List<String>, commandName: String): CompileAttempt {
         if (args.size != 1) {
-            err.println("error: `run` expects exactly one .dx file")
+            err.println("error: `$commandName` expects exactly one .dx file")
             printUsage(err)
-            return 2
+            return CompileAttempt.Failure(2)
         }
 
         val path = Path.of(args.single())
         if (!Files.isRegularFile(path)) {
             err.println("error: source file not found: $path")
-            return 2
+            return CompileAttempt.Failure(2)
         }
 
         val sourceText = path.readText()
         val sourceName = path.name
         val frontend = FrontendPipeline().compile(SourceId(sourceName), sourceText)
         if (!frontend.isSuccess) {
-            err.println("frontend diagnostics:")
-            frontend.lexDiagnostics.forEach { err.println("  $it") }
-            frontend.parseDiagnostics.forEach { err.println("  $it") }
-            frontend.lowerDiagnostics.forEach { err.println("  $it") }
-            return 1
+            DxDiagnosticRenderer(sourceText).renderFrontend(frontend).forEach(err::println)
+            return CompileAttempt.Failure(1)
         }
 
         val computation = requireNotNull(frontend.computation)
@@ -65,12 +86,12 @@ class DxCli(
         if (!typecheck.isSuccess) {
             err.println("type diagnostics:")
             typecheck.diagnostics.forEach { err.println("  $it") }
-            return 1
+            return CompileAttempt.Failure(1)
         }
         val type = requireNotNull(typecheck.type)
         if (type.effects.isNotEmpty()) {
             err.println("error: CLI pure runner cannot execute unhandled effects: ${type.effects.sorted()}")
-            return 1
+            return CompileAttempt.Failure(1)
         }
 
         val internalName = generatedInternalName(path)
@@ -82,20 +103,17 @@ class DxCli(
         if (!compiled.isSuccess) {
             err.println("jvm backend diagnostics:")
             compiled.diagnostics.forEach { err.println("  $it") }
-            return 1
+            return CompileAttempt.Failure(1)
         }
 
-        val classes = GeneratedClassLoader().defineAll(compiled.allClasses())
-        val mainClass = requireNotNull(classes[internalName]) { "generated main class was not loaded" }
-        val result = mainClass.getMethod("eval").invoke(null)
-        out.println(DxValuePrinter.render(result))
-        return 0
+        return CompileAttempt.Success(CompiledScript(path, internalName, compiled.allClasses()))
     }
 
     private fun printUsage(stream: PrintStream = out) {
         stream.println(
             """
             usage:
+              dx check <file.dx>
               dx run <file.dx>
             """.trimIndent(),
         )
@@ -110,6 +128,17 @@ class DxCli(
         return "dx/generated/cli/Script_$digest"
     }
 }
+
+private sealed interface CompileAttempt {
+    data class Success(val script: CompiledScript) : CompileAttempt
+    data class Failure(val exitCode: Int) : CompileAttempt
+}
+
+private data class CompiledScript(
+    val path: Path,
+    val internalName: String,
+    val classes: List<GeneratedClass>,
+)
 
 private fun List<GeneratedClass>.withMain(main: GeneratedClass?): List<GeneratedClass> =
     this + listOfNotNull(main)
