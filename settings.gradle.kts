@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 rootProject.name = "dx-jvm"
 
 include(":compiler:cbpv-core")
+include(":compiler:backend-jvm")

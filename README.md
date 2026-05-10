@@ -12,4 +12,5 @@ Current focus:
 1. CBPV Core executable semantics.
 2. Effect/capability model.
 3. One-shot continuation safety.
-4. Later: JVM 21 bytecode backend and Java interop.
+4. JVM 21 bytecode backend spike.
+5. Later: Java interop and colorless async lowering.

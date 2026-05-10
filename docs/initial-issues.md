@@ -45,3 +45,8 @@ Exit criteria:
 
 - Generated class runs on JDK 21.
 - Stack trace/source line metadata points back to the dx source fixture.
+
+Status:
+
+- Implemented in `compiler/backend-jvm`.
+- Covered by bytecode verification, execution, generated class naming, and stack trace line tests.
