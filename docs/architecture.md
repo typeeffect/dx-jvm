@@ -67,6 +67,7 @@ Current facts used:
 - Effekt docs describe lexical effect handlers and capabilities.
 - Levy's call-by-push-value notes motivate the compiler's separation of values, computations, explicit sequencing, thunks, and continuation/stack-sensitive semantics.
 - The detailed audit is tracked in `docs/levy-cbpv-alignment.md`.
+- The effects/handlers/AD paper audit is tracked in `docs/paper-alignment.md`.
 
 ## 3. Product Definition
 
@@ -206,6 +207,17 @@ Effect inference:
 - Public ABI emits effect metadata annotation.
 - Recursive functions require declared effects initially.
 - If Java call nullability/exception/effect is unknown, infer conservative effects and warn.
+
+Paper-aligned lowering rule:
+
+- Effect rows do not only document behavior; they drive lowering.
+- Direct effects stay direct.
+- Non-resumptive handlers do not allocate resumable continuations.
+- Tail-resume handlers are optimized as direct control flow where possible.
+- Non-tail one-shot resumes and `Async` suspension lower through explicit
+  continuation/state-machine IR.
+- Polymorphic effect functions are conservatively transformed until
+  specialization proves a direct version is enough.
 
 Diagnostics:
 
@@ -756,6 +768,14 @@ Runtime components:
 - `DebugProbe`: async stack traces, metrics, tracing hooks.
 - `Context`: scoped values and selected ThreadLocal propagation.
 
+Paper-aligned runtime constraints:
+
+- Code without async/handlers should pay minimal overhead.
+- Captured continuations are one-shot and need explicit cleanup/discontinue
+  paths.
+- Debuggability and logical stack traces are runtime requirements.
+- The JVM backend must not assume portable raw JVM stack capture.
+
 Scheduler decision:
 
 - MVP uses a small runtime over Java executors and virtual threads.
@@ -805,6 +825,8 @@ External:
 The language should keep Automatic Differentiation as a strategic post-MVP capability.
 
 Typed effects and lexical capabilities make AD a strong fit because differentiation requires controlled interpretation of numeric/tensor operations, tracing, tape management, randomness, resource safety, and purity boundaries.
+
+Detailed spec: `spec/differentiable-programming.md`.
 
 Design direction:
 
@@ -1522,3 +1544,9 @@ The immediate next step is not "build the compiler". It is the spike sequence in
 - Scala 3 contextual abstractions: https://docs.scala-lang.org/scala3/reference/contextual/
 - Koka repository and language notes: https://github.com/koka-lang/koka
 - Paul Blain Levy, lambda-calculus, effects and call-by-push-value: https://pblevy.github.io/mgsfastlam.pdf
+- Daan Leijen, Type Directed Compilation of Row-typed Algebraic Effects, 2016.
+- KC Sivaramakrishnan et al., Retrofitting Effect Handlers onto OCaml, PLDI 2021.
+- Matija Pretnar, An Introduction to Algebraic Effects and Handlers, 2015.
+- Gordon Plotkin and Matija Pretnar, Handling Algebraic Effects, 2013.
+- Sam Lindley, Conor McBride, Craig McLaughlin, Do Be Do Be Do, 2017.
+- Jesse Sigal, Automatic Differentiation via Effects and Handlers.

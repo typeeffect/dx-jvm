@@ -46,3 +46,47 @@ Frontend-to-JVM vertical slice:
 - `compiler/frontend` can lower a small `.dx` source subset to typed CBPV.
 - Tests typecheck the lowered CBPV, execute it in the CBPV interpreter, compile it to JVM bytecode, execute the generated class, and compare the results.
 - This is the first end-to-end semantic contract for the JVM line.
+
+## Paper-Aligned Backend Prescriptions
+
+The backend must follow a type-directed selective lowering strategy:
+
+- Do not apply full CPS to all code.
+- Use CBPV/effect information to identify only the regions that require
+  continuation capture or async suspension.
+- Preserve direct JVM calls and ordinary stack traces for pure/direct code.
+- Lower non-resumptive effects like exception-like abort paths without
+  allocating resumable continuations.
+- Optimize tail-resume handler clauses into direct jumps/calls where possible.
+- Lower non-tail one-shot resumes through explicit continuation/state-machine
+  IR.
+- Treat async suspension as a one-shot continuation registered with the runtime.
+- Generate source line metadata for every generated state label that can appear
+  in a stack trace or async diagnostic.
+
+Runtime constraints from the OCaml handlers implementation do not map directly
+to the JVM, but the engineering lesson does:
+
+- Continuation representation is a performance/debugging design decision, not a
+  library detail.
+- Code that does not use handlers/async must pay minimal overhead.
+- Backtraces and profilers must remain useful after lowering.
+- Captured continuations must have explicit cleanup/discontinue paths.
+- Java/native/foreign calls must not be captured casually across one-shot
+  continuation boundaries.
+
+Required backend IR before async MVP:
+
+```text
+LoweredComputation
+  DirectBlock
+  HandlerFrame
+  ContinuationState(id, sourceSpan, liveLocals, cleanupStack)
+  AwaitPoint(futureExpr, resumeState, cancelState)
+  ResumeOneShot(resumptionId, value)
+  DiscontinueOneShot(resumptionId, error)
+```
+
+This IR is allowed to compile to bytecode state machines, helper classes, or a
+hybrid of direct bytecode plus runtime continuations. It must not rely on raw JVM
+stack capture, which the JVM does not provide as a stable portable facility.

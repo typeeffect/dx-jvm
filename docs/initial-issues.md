@@ -112,3 +112,78 @@ Exit criteria:
 Status:
 
 - Identified by Levy CBPV alignment audit.
+
+## DX-006: Implement Effect Row Solver And Capability Evidence Model
+
+Goal: implement the paper-aligned effect checker model: nominal source effects,
+structural normalized rows internally, lexical capability evidence, and
+diagnostics that report missing evidence rather than row-unifier internals.
+
+Deliverables:
+
+- Effect declaration parser/AST.
+- Operation signature table.
+- Scoped-label-inspired internal row representation.
+- Capability evidence representation in typed AST/CBPV lowering.
+- Diagnostics for missing capability, missing handler clause, and public effect
+  escape.
+
+Exit criteria:
+
+- A `Log`/`Ask` user effect can be declared, performed, handled, and rejected
+  when unhandled.
+- Multiple lexical capabilities for the same nominal effect produce clear
+  diagnostics.
+
+Status:
+
+- Specified in `spec/effects.md` after paper audit.
+
+## DX-007: Spike Type-Directed Selective CPS/State-Machine Lowering
+
+Goal: validate the Leijen/Koka-style selective lowering strategy on the JVM
+before async and handlers grow around an unsuitable representation.
+
+Deliverables:
+
+- Lowering classifier for direct, tail-resume, one-shot capture, and async
+  suspension effects.
+- Minimal continuation IR.
+- One handler example with tail resume compiled without general continuation
+  allocation.
+- One handler or await example lowered through explicit continuation state.
+
+Exit criteria:
+
+- Pure code remains direct bytecode.
+- Effectful code transforms only the region that needs continuation capture.
+- Source spans survive into lowered states.
+
+Status:
+
+- Specified in `spec/effects.md`, `spec/async.md`, and `spec/jvm-backend.md`
+  after paper audit.
+
+## DX-008: Define One-Shot Runtime Cleanup And Debug Model
+
+Goal: turn the OCaml handlers engineering lessons into JVM-specific runtime
+requirements for continuations, cancellation, cleanup, and stack traces.
+
+Deliverables:
+
+- Runtime `Resumption` state machine: fresh, resumed, discontinued, escaped.
+- Double-resume and resume-after-scope-exit diagnostics.
+- Cleanup/discontinue path for abandoned continuations.
+- Async logical stack trace format.
+- Tests for cancellation through `use`/`defer`.
+
+Exit criteria:
+
+- A cancelled async task runs cleanup exactly once.
+- A double-resumed continuation is detected.
+- A leaked continuation produces a source-spanned runtime diagnostic in debug
+  mode.
+
+Status:
+
+- Specified in `spec/async.md` and `spec/jvm-backend.md` after paper audit.
