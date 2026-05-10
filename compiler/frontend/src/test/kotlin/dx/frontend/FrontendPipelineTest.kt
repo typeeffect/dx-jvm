@@ -13,6 +13,7 @@ import dx.jvm.GeneratedClassLoader
 import dx.jvm.SourceLocation
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -73,18 +74,38 @@ class FrontendPipelineTest {
     }
 
     @Test
-    fun rejectsUnsupportedUntypedLambdaInLowering() {
+    fun parsesTypedLambdaApplication() {
+        val result = pipeline.compile(SourceId("lambda.dx"), "(fun x: Str -> x)(\"Ada\")")
+
+        assertSuccess(result)
+        assertEquals("Ada", evalFrontend(result))
+        assertEquals("Ada", compileAndRunJvm(assertNotNull(result.computation)))
+    }
+
+    @Test
+    fun parsesTypedLambdaInValBinding() {
+        val result = pipeline.compile(SourceId("lambda_val.dx"), "val id = fun x: Str -> x; id(\"Ada\")")
+
+        assertSuccess(result)
+        assertEquals("Ada", evalFrontend(result))
+    }
+
+    @Test
+    fun parserRejectsLambdaWithoutParameterType() {
         val result = pipeline.compile(SourceId("lambda.dx"), "fun x -> x")
 
-        assertEquals(
-            listOf(
-                LowerDiagnostic.UnsupportedExpression(
-                    "lambda requires parameter type syntax before lowering",
-                    assertNotNull(result.module).expression.span,
-                ),
-            ),
-            result.lowerDiagnostics,
+        assertTrue(result.parseDiagnostics.isNotEmpty(), result.toString())
+    }
+
+    @Test
+    fun parserRejectsUnknownParameterType() {
+        val result = pipeline.compile(SourceId("lambda.dx"), "fun x: Unknown -> x")
+
+        val diagnostic = assertIs<ParseDiagnostic.Expected>(
+            result.parseDiagnostics.first { it is ParseDiagnostic.Expected && it.expected == "known type" },
         )
+        assertEquals("known type", diagnostic.expected)
+        assertEquals("Unknown", diagnostic.actual.lexeme)
     }
 
     @Test

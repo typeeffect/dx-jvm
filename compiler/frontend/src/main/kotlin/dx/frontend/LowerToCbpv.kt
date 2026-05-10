@@ -76,11 +76,10 @@ class CbpvLowerer {
                 body?.let(TypedValue::ThunkValue)
             }
             is DxExpr.Lambda -> {
-                diagnostics += LowerDiagnostic.UnsupportedExpression(
-                    "lambda requires parameter type syntax before lowering",
-                    expr.span,
-                )
-                null
+                val body = lowerComputation(expr.body, diagnostics)
+                body?.let {
+                    TypedValue.Lambda(expr.parameter, expr.parameterType, it)
+                }
             }
             is DxExpr.Apply,
             is DxExpr.Force,

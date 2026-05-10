@@ -1,5 +1,7 @@
 package dx.frontend
 
+import dx.cbpv.ValueType
+
 sealed interface DxExpr {
     val span: SourceSpan
 
@@ -17,6 +19,7 @@ sealed interface DxExpr {
 
     data class Lambda(
         val parameter: String,
+        val parameterType: ValueType,
         val body: DxExpr,
         override val span: SourceSpan,
     ) : DxExpr

@@ -24,6 +24,7 @@ class Lexer(
                 '}' -> token(TokenKind.RBrace, "}", startOffset, startLine, startColumn)
                 ';' -> token(TokenKind.Semicolon, ";", startOffset, startLine, startColumn)
                 ',' -> token(TokenKind.Comma, ",", startOffset, startLine, startColumn)
+                ':' -> token(TokenKind.Colon, ":", startOffset, startLine, startColumn)
                 '=' -> token(TokenKind.Equal, "=", startOffset, startLine, startColumn)
                 '-' -> {
                     if (match('>')) {

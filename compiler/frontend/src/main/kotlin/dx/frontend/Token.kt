@@ -18,6 +18,7 @@ enum class TokenKind {
     RBrace,
     Semicolon,
     Comma,
+    Colon,
     Equal,
     Arrow,
     Eof,

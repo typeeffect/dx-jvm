@@ -24,7 +24,20 @@ Initial executable frontend subset:
 - Pairs: `pair(a, b)`.
 - Thunks: `thunk { expr }`.
 - Forcing: `force expr`.
-- Lambda/application parsing exists, but lambda lowering is blocked until parameter type syntax is decided.
+- Typed lambdas: `fun name: Type -> expr`.
+- Function application: `f(arg)`.
+
+Initial value types in source:
+
+- `Unit`
+- `Bool`
+- `Int`
+- `Str`
+
+Current backend note:
+
+- Direct application of literal typed lambdas can lower to JVM bytecode.
+- Lambda values stored in variables execute in the interpreter but are not yet lowered to JVM closure objects.
 
 Frontend pipeline:
 

@@ -1,5 +1,7 @@
 package dx.frontend
 
+import dx.cbpv.ValueType
+
 sealed interface ParseDiagnostic {
     data class Expected(val expected: String, val actual: Token) : ParseDiagnostic
 }
@@ -68,9 +70,25 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parseLambda(keyword: Token): DxExpr? {
         val name = consume(TokenKind.Identifier, "identifier") ?: return null
+        consume(TokenKind.Colon, "`:`") ?: return null
+        val parameterType = parseType() ?: return null
         consume(TokenKind.Arrow, "`->`") ?: return null
         val body = parseExpr() ?: return null
-        return DxExpr.Lambda(name.lexeme, body, merge(keyword.span, body.span))
+        return DxExpr.Lambda(name.lexeme, parameterType, body, merge(keyword.span, body.span))
+    }
+
+    private fun parseType(): ValueType? {
+        val token = consume(TokenKind.Identifier, "type") ?: return null
+        return when (token.lexeme) {
+            "Unit" -> ValueType.UnitType
+            "Bool" -> ValueType.BoolType
+            "Int" -> ValueType.IntType
+            "Str" -> ValueType.StringType
+            else -> {
+                diagnostics += ParseDiagnostic.Expected("known type", token)
+                null
+            }
+        }
     }
 
     private fun parseThunk(keyword: Token): DxExpr? {
