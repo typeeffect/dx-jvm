@@ -163,8 +163,12 @@ Exit criteria:
 
 Status:
 
-- Specified in `spec/effects.md`, `spec/async.md`, and `spec/jvm-backend.md`
-  after paper audit.
+- First slice implemented in `compiler/cbpv-core`: `SelectiveLoweringAnalyzer`
+  classifies typed CBPV as direct, direct-with-handler-frame, one-shot capture,
+  or async suspension and emits minimal `DirectBlock`, `HandlerFrame`,
+  `ContinuationState`, and `AwaitPoint` IR nodes.
+- Remaining work: make the JVM backend consume the plan, then implement actual
+  state-machine/continuation lowering for one-shot and async cases.
 
 ## DX-008: Define One-Shot Runtime Cleanup And Debug Model
 

@@ -19,7 +19,8 @@ Current focus:
 3. One-shot continuation safety.
 4. JVM 21 bytecode backend spike.
 5. CLI/script runner vertical slice.
-6. Later: Java interop and colorless async lowering.
+6. Type-directed selective lowering analysis.
+7. Later: Java interop and colorless async lowering.
 
 ## Run The Current Prototype
 

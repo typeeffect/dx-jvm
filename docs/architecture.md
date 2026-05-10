@@ -582,7 +582,8 @@ Stage responsibilities:
 | Type/effect checker | resolved AST | typed AST | Every expression has type/effect/captures. |
 | Desugar | typed AST | CBPV core IR | Surface sugar removed, source spans retained; value/computation boundary explicit. |
 | Effect elaboration | CBPV core IR | capability IR | Operation calls have handler/capability evidence. |
-| Async lowering | capability IR | lowered IR | Suspension points explicit, only affected funcs transformed. |
+| Selective lowering analysis | typed CBPV/capability IR | lowering plan | Pure code stays direct; handler frames, one-shot captures, and async await-points are classified before backend lowering. |
+| Async lowering | capability IR + lowering plan | lowered IR | Suspension points explicit, only affected funcs transformed. |
 | Closure conversion | lowered IR | JVM IR | Captures explicit and representable. |
 | Bytecode | JVM IR | `.class` | Verifier passes; debug metadata maps to source. |
 
@@ -686,6 +687,9 @@ Compiler invariants:
 - Closure conversion knows whether a closure captures values, thunks, capabilities, or suspended computations.
 - Handler lowering receives an explicit computation boundary where one-shot resumptions can be allocated.
 - Async lowering sees suspension points as computations and can generate state labels from `bind` structure.
+- `SelectiveLoweringAnalyzer` is the current concrete bridge from effect rows to
+  backend lowering: it distinguishes direct code, direct handler frames,
+  one-shot continuation capture, and async suspension.
 - Pure optimizations may rewrite values freely, but computation rewrites must preserve effect order.
 
 Surface-to-CBPV example:

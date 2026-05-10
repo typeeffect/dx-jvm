@@ -25,6 +25,8 @@ Stage -1 implementation:
 - Current executable forms: `return`, `bind`, `if`, `thunk`, `force`, computation-level lambda/application, `perform`, `handle`.
 - Current safety checks: unhandled effect, missing operation, type mismatch, one-shot double resume, resume after handler scope exit.
 - Current semantic test target: at least 20 focused tests before backend lowering depends on these semantics.
+- Current selective-lowering analysis: classifies typed CBPV as direct,
+  direct-with-handler-frame, one-shot continuation capture, or async suspension.
 
 Typed core implementation:
 
@@ -128,3 +130,50 @@ The current JVM backend still uses generated JVM closure objects as the runtime
 representation for pure thunked lambda computations. That is an implementation
 strategy for the pure vertical slice, not a return to value-level lambda
 semantics in the core.
+
+## Selective Lowering Analysis
+
+Module: `compiler/cbpv-core`.
+
+Entry point:
+
+```kotlin
+SelectiveLoweringAnalyzer().analyze(computation)
+```
+
+The analyzer is the first concrete DX-007 artifact. It does not yet generate
+final JVM state machines. It produces a lowering plan that the backend can use
+to avoid full-program CPS:
+
+```text
+SelectiveLoweringClass ::=
+  Direct
+  DirectWithHandlerFrame
+  OneShotCapture
+  AsyncSuspend
+
+SelectiveContinuationIr ::=
+  DirectBlock(id, source)
+  HandlerFrame(id, effect, source)
+  ContinuationState(id, reason, source)
+  AwaitPoint(id, effect, operation, source)
+```
+
+Classification rules:
+
+- Pure `return`, `bind`, `if`, `force`, lambda, and application stay `Direct`
+  when their subcomputations are direct.
+- A handler whose clauses never resume or only tail-resume is
+  `DirectWithHandlerFrame`.
+- An operation handled by such a direct handler does not require general
+  continuation capture.
+- A non-tail or multiple resume upgrades the plan to `OneShotCapture`.
+- An unhandled user operation is conservatively `OneShotCapture`.
+- An `Async` operation upgrades the plan to `AsyncSuspend` and emits an
+  `AwaitPoint`.
+- `AsyncSuspend` dominates `OneShotCapture`, which dominates
+  `DirectWithHandlerFrame`, which dominates `Direct`.
+
+The analyzer keeps source spans on generated IR nodes when a `TypedSourceMap`
+is available. This is the handoff point for source-aware state-machine and async
+stack diagnostics.
