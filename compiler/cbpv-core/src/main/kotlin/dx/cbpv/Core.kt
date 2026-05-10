@@ -53,7 +53,7 @@ private enum class ScopeState {
     Closed,
 }
 
-private class HandlerScope {
+internal class HandlerScope {
     private val state = AtomicReference(ScopeState.Active)
 
     fun close() {
