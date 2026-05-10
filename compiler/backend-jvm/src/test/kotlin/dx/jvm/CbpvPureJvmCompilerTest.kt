@@ -2,6 +2,8 @@ package dx.jvm
 
 import dx.cbpv.RuntimeResult
 import dx.cbpv.RuntimeValue
+import dx.cbpv.SelectiveLoweringClass
+import dx.cbpv.SelectiveLoweringReason
 import dx.cbpv.TypedComputation
 import dx.cbpv.TypedEvaluator
 import dx.cbpv.TypedValue
@@ -303,9 +305,61 @@ class CbpvPureJvmCompilerTest {
             computation = TypedComputation.Perform("Ask", "name"),
         )
 
-        assertEquals(
-            listOf(CbpvJvmDiagnostic.UnsupportedComputation("Perform")),
-            result.diagnostics,
+        val diagnostic = assertSingleUnsupportedLoweringPlan(result)
+        assertEquals(SelectiveLoweringClass.OneShotCapture, diagnostic.loweringClass)
+        assertTrue(
+            diagnostic.reasons.any {
+                it is SelectiveLoweringReason.OperationRequiresCapture &&
+                    it.effect == "Ask" &&
+                    it.operation == "name"
+            },
+            "${diagnostic.reasons}",
+        )
+        assertEquals(null, result.generatedClass)
+    }
+
+    @Test
+    fun rejectsDirectHandlerFrameInPureJvmSubsetBeforeBytecodeEmission() {
+        val result = compiler.compileEvalClass(
+            internalName = "dx/generated/cbpv/RejectHandler",
+            source = SourceLocation("reject.dx", 1),
+            computation = TypedComputation.Handle(
+                body = TypedComputation.Perform("Ask", "name"),
+                handler = dx.cbpv.TypedHandler(
+                    effect = "Ask",
+                    clauses = mapOf(
+                        "name" to dx.cbpv.TypedHandlerClause(
+                            parameters = emptyList(),
+                            body = TypedComputation.Resume(TypedValue.StringValue("Ada")),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val diagnostic = assertSingleUnsupportedLoweringPlan(result)
+        assertEquals(SelectiveLoweringClass.DirectWithHandlerFrame, diagnostic.loweringClass)
+        assertTrue(diagnostic.reasons.any { it is SelectiveLoweringReason.HandlerFrame }, "${diagnostic.reasons}")
+        assertEquals(null, result.generatedClass)
+    }
+
+    @Test
+    fun rejectsAsyncSuspendInPureJvmSubsetBeforeBytecodeEmission() {
+        val result = compiler.compileEvalClass(
+            internalName = "dx/generated/cbpv/RejectAsync",
+            source = SourceLocation("reject.dx", 1),
+            computation = TypedComputation.Perform("Async", "awaitInt"),
+        )
+
+        val diagnostic = assertSingleUnsupportedLoweringPlan(result)
+        assertEquals(SelectiveLoweringClass.AsyncSuspend, diagnostic.loweringClass)
+        assertTrue(
+            diagnostic.reasons.any {
+                it is SelectiveLoweringReason.AsyncOperation &&
+                    it.effect == "Async" &&
+                    it.operation == "awaitInt"
+            },
+            "${diagnostic.reasons}",
         )
         assertEquals(null, result.generatedClass)
     }
@@ -348,6 +402,13 @@ class CbpvPureJvmCompilerTest {
         assertTrue(result.diagnostics.isEmpty(), "${result.diagnostics}")
         assertNotNull(result.generatedClass)
         return result
+    }
+
+    private fun assertSingleUnsupportedLoweringPlan(
+        result: CbpvJvmCompileResult,
+    ): CbpvJvmDiagnostic.UnsupportedLoweringPlan {
+        assertEquals(1, result.diagnostics.size, "${result.diagnostics}")
+        return result.diagnostics.single() as CbpvJvmDiagnostic.UnsupportedLoweringPlan
     }
 
     private fun normalizeInterpreterResult(result: RuntimeResult): Any? =

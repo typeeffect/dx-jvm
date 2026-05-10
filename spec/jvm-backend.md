@@ -96,8 +96,10 @@ Current implementation status:
 - `compiler/cbpv-core` now provides `SelectiveLoweringAnalyzer`.
 - It emits the first minimal IR nodes: `DirectBlock`, `HandlerFrame`,
   `ContinuationState`, and `AwaitPoint`.
-- The pure JVM backend does not consume this IR yet; it remains a direct
-  bytecode backend for the pure subset.
-- Next backend step: make `CbpvPureJvmCompiler` assert/consume a `Direct` plan
-  before compilation, then add a separate async/handler lowering backend rather
-  than silently extending the pure backend.
+- The pure JVM backend consumes the plan at entry and only compiles
+  `SelectiveLoweringClass.Direct`.
+- Non-direct plans are rejected before bytecode emission with
+  `UnsupportedLoweringPlan`, preserving a clean boundary between the pure
+  backend and future handler/async lowering.
+- Next backend step: add a separate continuation/state-machine lowering backend
+  rather than silently extending the pure backend.

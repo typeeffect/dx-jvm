@@ -167,8 +167,10 @@ Status:
   classifies typed CBPV as direct, direct-with-handler-frame, one-shot capture,
   or async suspension and emits minimal `DirectBlock`, `HandlerFrame`,
   `ContinuationState`, and `AwaitPoint` IR nodes.
-- Remaining work: make the JVM backend consume the plan, then implement actual
-  state-machine/continuation lowering for one-shot and async cases.
+- The pure JVM backend now consumes this plan and accepts only `Direct`,
+  rejecting handler/async/capture cases before bytecode emission.
+- Remaining work: implement actual state-machine/continuation lowering for
+  one-shot and async cases in a separate backend path.
 
 ## DX-008: Define One-Shot Runtime Cleanup And Debug Model
 

@@ -1,5 +1,8 @@
 package dx.jvm
 
+import dx.cbpv.SelectiveLoweringAnalyzer
+import dx.cbpv.SelectiveLoweringClass
+import dx.cbpv.SelectiveLoweringReason
 import dx.cbpv.TypedComputation
 import dx.cbpv.TypedValue
 import org.objectweb.asm.ClassWriter
@@ -37,6 +40,11 @@ data class CbpvJvmCompileResult(
 }
 
 sealed interface CbpvJvmDiagnostic {
+    data class UnsupportedLoweringPlan(
+        val loweringClass: SelectiveLoweringClass,
+        val reasons: List<SelectiveLoweringReason>,
+    ) : CbpvJvmDiagnostic
+
     data class UnsupportedComputation(val node: String) : CbpvJvmDiagnostic
     data class UnsupportedValue(val node: String) : CbpvJvmDiagnostic
     data class UnknownVariable(val name: String) : CbpvJvmDiagnostic
@@ -57,6 +65,19 @@ class CbpvPureJvmCompiler {
         require(source.line > 0) { "source line numbers are 1-based" }
         require(internalName.isNotBlank()) { "internalName must not be blank" }
         require(!internalName.contains('.')) { "internalName must use JVM slash separators" }
+
+        val loweringPlan = SelectiveLoweringAnalyzer().analyze(computation)
+        if (loweringPlan.loweringClass != SelectiveLoweringClass.Direct) {
+            return CbpvJvmCompileResult(
+                generatedClass = null,
+                diagnostics = listOf(
+                    CbpvJvmDiagnostic.UnsupportedLoweringPlan(
+                        loweringClass = loweringPlan.loweringClass,
+                        reasons = loweringPlan.reasons,
+                    ),
+                ),
+            )
+        }
 
         val state = CompilationState(internalName, source)
         val diagnostics = mutableListOf<CbpvJvmDiagnostic>()

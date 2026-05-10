@@ -690,6 +690,8 @@ Compiler invariants:
 - `SelectiveLoweringAnalyzer` is the current concrete bridge from effect rows to
   backend lowering: it distinguishes direct code, direct handler frames,
   one-shot continuation capture, and async suspension.
+- `CbpvPureJvmCompiler` consumes that plan and only emits bytecode for
+  `Direct`; non-direct plans are routed to future handler/async lowering.
 - Pure optimizations may rewrite values freely, but computation rewrites must preserve effect order.
 
 Surface-to-CBPV example:
