@@ -15,6 +15,50 @@ Initial decision:
 
 - `await` is parsed as a normal-looking function call and resolved as a compiler-known stdlib intrinsic, not as a hard reserved keyword unless ambiguity forces that later.
 - Surface binding syntax uses `val` and `var`; dx does not expose `let` as user syntax.
+- dx keeps the source-language surface small and stable. New syntax is accepted
+  only when library functions plus trailing lambdas, typed effects, and
+  capabilities cannot provide good semantics, diagnostics, lowering, or Java
+  ABI behavior.
+
+## Small Surface Spec Policy
+
+dx should be efficient for humans, tools, and LLMs by minimizing syntax and
+maximizing typed library expressiveness.
+
+Core surface constructs are reserved for features that need compiler-known
+scope, control flow, resource safety, effects, async lowering, diagnostics, or
+Java ABI integration:
+
+- `val`, `var`, assignment.
+- `fun`, calls, trailing lambdas, blocks.
+- `if`, `while`, `break`, `continue`, `return`.
+- `match` and data/variant declarations.
+- `effect`, `handle`, capability parameters.
+- `use`, `defer`.
+- Package/import/export forms.
+- Java interop annotations and ABI controls.
+
+Prefer library APIs plus trailing lambdas for higher-level constructs:
+
+- `retry { ... }`
+- `withTimeout { ... }`
+- `parallel { ... }`
+- `transaction { ... }`
+- configuration/build/test DSLs
+- JSON/YAML builders
+
+Design rules:
+
+- Avoid multiple spellings for the same construct.
+- Avoid syntax that can be represented as a typed function without losing
+  safety, diagnostics, or performance.
+- Keep desugaring explicit in the spec and source-spanned in the compiler.
+- The formatter should normalize all optional layout choices to a small set of
+  canonical forms.
+- Diagnostics should suggest canonical dx idioms so generated code converges
+  toward the small surface language.
+- Internal IR complexity belongs in CBPV, effect/capability elaboration, and
+  JVM lowering, not in user syntax.
 
 ## Surface Binding Policy
 

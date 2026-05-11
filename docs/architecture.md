@@ -103,6 +103,14 @@ Success criteria:
 
 ## 4. Language Semantics
 
+Surface strategy:
+
+dx should have a small, stable, LLM-friendly surface language and a deeper
+compiler core. New syntax is justified only when the compiler must know scope,
+control targets, capability lifetime, resource cleanup, async suspension,
+diagnostics, or Java ABI shape. Otherwise, prefer typed standard-library
+functions using trailing lambdas and capabilities.
+
 Recommended core:
 
 - Values: primitives, strings, records, sealed variants, arrays, collections, functions, classes wrapping Java classes.
@@ -130,6 +138,8 @@ Postpone beyond v1:
 - Unrestricted multi-shot handlers.
 - Global type inference.
 - Compile-time reflection-heavy DSL expansion.
+- Extra surface syntax for patterns that can be expressed as typed
+  tail-lambda library APIs.
 
 ## 5. Effect System Design
 

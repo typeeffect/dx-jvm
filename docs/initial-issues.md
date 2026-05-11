@@ -233,3 +233,31 @@ Status:
 
 - Planned and specified in `spec/syntax.md`, `spec/effects.md`, and
   `docs/architecture.md`; not implemented in the executable frontend yet.
+
+## DX-010: Keep The Surface Spec Small And LLM-Friendly
+
+Goal: preserve a small, canonical source language while allowing rich behavior
+through typed libraries, trailing lambdas, effects, capabilities, and CBPV
+lowering.
+
+Deliverables:
+
+- A `spec/syntax.md` policy for accepting or rejecting new surface syntax.
+- A canonical list of core constructs that deserve compiler-known syntax.
+- Library-first guidance for constructs such as `retry`, `withTimeout`,
+  `parallel`, `transaction`, and DSL builders.
+- Formatter rules that reduce optional spelling/layout variation.
+- Diagnostics that suggest canonical dx idioms instead of many equivalent
+  spellings.
+
+Exit criteria:
+
+- Every proposed new keyword or syntax form states why a library API is not
+  enough.
+- MVP examples use one canonical spelling per concept.
+- LLM-oriented prompt/spec snippets can describe the usable surface language in
+  a small page without hiding semantic obligations.
+
+Status:
+
+- Policy added to `spec/syntax.md` and `docs/architecture.md`.
