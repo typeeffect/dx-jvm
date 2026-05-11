@@ -197,3 +197,35 @@ Exit criteria:
 Status:
 
 - Specified in `spec/async.md` and `spec/jvm-backend.md` after paper audit.
+
+## DX-009: Define Val/Var, Trailing Lambda, And Control-Flow Blocks
+
+Goal: freeze the source-level policy for mutable bindings, Kotlin-style
+trailing lambda syntax, loop control, and effect-polymorphic tail-lambda control
+APIs such as `retry`.
+
+Deliverables:
+
+- `spec/syntax.md` section for `val`, planned `var`, and no source-level
+  `let`.
+- Parser rules and ambiguity tests for trailing lambda blocks.
+- Syntax and diagnostics for `while`, `break`, and `continue`.
+- Standard-library design for `retry(times, backoff?) { ... }` that preserves
+  the body effects and supports async/cancellation.
+- Lowering plan for direct loops as JVM branches and suspendable loops as
+  selective continuation/state-machine regions.
+
+Exit criteria:
+
+- `break` and `continue` outside a loop are rejected with source-spanned
+  diagnostics.
+- A pure `while` loop compiles through the direct backend path.
+- A `retry { await(...) }` example is accepted by the checker once async
+  lowering is available and exposes `{ Async, ... }` in its effect row.
+- Cleanup tests prove `use`/`defer` run exactly once across `break`,
+  `continue`, retry failure, and cancellation.
+
+Status:
+
+- Planned and specified in `spec/syntax.md`, `spec/effects.md`, and
+  `docs/architecture.md`; not implemented in the executable frontend yet.

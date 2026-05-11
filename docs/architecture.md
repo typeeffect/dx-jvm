@@ -108,6 +108,7 @@ Recommended core:
 - Values: primitives, strings, records, sealed variants, arrays, collections, functions, classes wrapping Java classes.
 - Functions: direct style, first-class, lexical closures, named/default parameters.
 - Blocks: expressions by default; last expression returns value.
+- Bindings: `val` for immutable locals, `var` for explicit mutable locals; no source-level `let`.
 - Control flow: `if`, `while`, `for`, `match`, `return`, `break`, `continue`.
 - Data: `data` records, `sealed` variants, Java-compatible `class` for exported APIs.
 - Modules: Java-like packages plus top-level definitions.
@@ -520,6 +521,28 @@ build {
 ```
 
 The block has a receiver capability, not dynamic `delegate` mutation.
+
+Tail-lambda control APIs are part of the ergonomic target:
+
+```text
+retry(times = 3, backoff = 200.ms) {
+  await(http.get(url))
+}
+
+while { i < 10 } {
+  if i == 5 {
+    break
+  }
+  i = i + 1
+}
+```
+
+`while`, `break`, and `continue` are language control forms, but their
+implementation may elaborate to an internal lexical `LoopControl`
+capability/effect so cleanup, cancellation, and selective lowering stay
+consistent. `retry` is a normal standard-library function using trailing lambda
+syntax; it preserves the body effects and re-invokes the body per attempt
+rather than cloning continuations.
 
 ## 11. Type System
 

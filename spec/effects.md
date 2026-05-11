@@ -136,6 +136,59 @@ if its checked effect/capability usage requires continuation capture or async
 suspension. Polymorphic effect functions are conservatively transformed until
 specialization proves a direct version is enough.
 
+## Control Flow Effects And Tail-Lambda APIs
+
+dx should support user-facing control flow without falling back to unchecked
+exceptions or Groovy-style dynamic dispatch.
+
+Loop control policy:
+
+- `while`, `break`, and `continue` are source control forms in the v1 plan.
+- The compiler may elaborate loop control to an internal lexical
+  `LoopControl` capability/effect, but this is not a public user-defined
+  effect row by default.
+- `break` and `continue` are not Java exceptions and are not arbitrary
+  user-catchable handler operations.
+- `break` exits the nearest enclosing loop; `continue` starts the next
+  iteration of the nearest enclosing loop.
+- `break` or `continue` outside a loop is a static diagnostic.
+- `defer`, `use`, and `finally`-style cleanup must run exactly once across
+  loop exits, continues, cancellation, and handler paths.
+- Direct loops should lower to JVM branches where no continuation capture is
+  needed. Loops containing `await` or non-tail one-shot handlers lower through
+  the selective continuation/state-machine path.
+
+Retry policy:
+
+```text
+retry[A, e](times: Int, body: () -> A / e): A / { e, Throws[RetryExhausted] }
+retry[A, e](times: Int, backoff: Duration, body: () -> A / { Async, e }): A / { Async, e, Throws[RetryExhausted] }
+```
+
+- `retry` is a standard-library tail-lambda function, not a macro and not
+  special parser magic beyond normal trailing-lambda syntax.
+- The body effects are preserved. `retry` does not hide `IO`, `Async`,
+  `Resource`, Java mutation, or user effects.
+- Backoff, sleep, timeout, or async child work adds `Async`.
+- Cancellation stops retry immediately and runs attempt-local cleanup.
+- Each attempt executes the body again from the beginning. This is ordinary
+  re-invocation, not multi-shot continuation cloning.
+- Resources acquired inside an attempt are scoped to that attempt unless
+  explicitly moved outside the retry block.
+- Unknown Java exceptions may be matched only through typed exception policies
+  or explicit predicates; `retry` must not silently catch fatal JVM errors.
+
+This gives dx a uniform user experience:
+
+```text
+retry(times = 3) {
+  await(client.fetch(uri))
+}
+```
+
+while keeping the implementation production-safe: retry is effect-polymorphic
+source code plus selective lowering, not a hidden continuation trick.
+
 ## Diagnostics Requirements
 
 Effect diagnostics should report:
@@ -146,6 +199,9 @@ Effect diagnostics should report:
 - Illegal capability escape from a handler/resource/async scope.
 - Non-replayable effect captured by a future multi-shot or differentiable region.
 - One-shot violation when a handler clause may call `resume` more than once.
+- `break` or `continue` used outside a valid loop target.
+- `retry` bodies whose effects or exception policy do not match the retry
+  predicate.
 
 Diagnostics must not expose raw row-unification variables unless the user asks
 for an expert/debug mode.
