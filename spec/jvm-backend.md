@@ -101,5 +101,10 @@ Current implementation status:
 - Non-direct plans are rejected before bytecode emission with
   `UnsupportedLoweringPlan`, preserving a clean boundary between the pure
   backend and future handler/async lowering.
-- Next backend step: add a separate continuation/state-machine lowering backend
-  rather than silently extending the pure backend.
+- `CbpvContinuationBackend` is the second backend path. It consumes
+  `DirectWithHandlerFrame` and `OneShotCapture` plans and produces a
+  source-spanned continuation program IR. It does not emit JVM bytecode yet.
+- `AsyncSuspend` is deliberately rejected by `CbpvContinuationBackend` until
+  the async runtime, cancellation, and cleanup model exists.
+- Next backend step: add an interpreter or bytecode lowering for
+  `CbpvContinuationProgram` handler-frame and one-shot-state nodes.

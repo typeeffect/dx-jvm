@@ -692,6 +692,10 @@ Compiler invariants:
   one-shot continuation capture, and async suspension.
 - `CbpvPureJvmCompiler` consumes that plan and only emits bytecode for
   `Direct`; non-direct plans are routed to future handler/async lowering.
+- `CbpvContinuationBackend` is the current non-direct backend path. It lowers
+  direct handler frames and one-shot capture plans into source-spanned
+  continuation IR, while still rejecting async suspension until the runtime is
+  present.
 - Pure optimizations may rewrite values freely, but computation rewrites must preserve effect order.
 
 Surface-to-CBPV example:

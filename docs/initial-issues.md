@@ -169,8 +169,10 @@ Status:
   `ContinuationState`, and `AwaitPoint` IR nodes.
 - The pure JVM backend now consumes this plan and accepts only `Direct`,
   rejecting handler/async/capture cases before bytecode emission.
-- Remaining work: implement actual state-machine/continuation lowering for
-  one-shot and async cases in a separate backend path.
+- `CbpvContinuationBackend` now consumes `DirectWithHandlerFrame` and
+  `OneShotCapture` plans and produces a source-spanned continuation program IR.
+- Remaining work: implement execution for the continuation program, then add
+  async runtime/cancellation support before accepting `AsyncSuspend`.
 
 ## DX-008: Define One-Shot Runtime Cleanup And Debug Model
 
