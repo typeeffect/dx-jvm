@@ -82,12 +82,16 @@ retry(times = 3, backoff = 200.ms) {
 
 Policy:
 
-- `while`, `break`, and `continue` are planned language control forms.
+- `while`, `break`, and `continue` are planned language control forms, not
+  standard-library functions.
 - `break` and `continue` are valid only inside the nearest enclosing loop.
 - `retry` should be a standard-library tail-lambda function, not a macro.
-- `while` may have built-in syntax and may also be specified internally as a
-  lexical control capability/effect so cleanup, diagnostics, and lowering stay
-  uniform.
+- The core `while` has compiler-known syntax and semantics. It may be
+  elaborated internally to a lexical control capability/effect, but that is an
+  implementation model, not the public definition of `while`.
+- Users may build custom loop-like control abstractions with tail lambdas and
+  effects, but those abstractions do not replace the primitive loop forms and
+  do not automatically inherit core `break`/`continue`.
 - The frontend must keep source spans for the condition block, body block,
   `break`, and `continue` so diagnostics can name the exact control target.
 

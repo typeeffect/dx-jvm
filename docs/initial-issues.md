@@ -210,8 +210,12 @@ Deliverables:
   `let`.
 - Parser rules and ambiguity tests for trailing lambda blocks.
 - Syntax and diagnostics for `while`, `break`, and `continue`.
+- Compiler-known loop semantics for `while`, with internal `LoopControl`
+  elaboration allowed only as an implementation strategy.
 - Standard-library design for `retry(times, backoff?) { ... }` that preserves
   the body effects and supports async/cancellation.
+- Guidance for custom loop-like APIs that use tail lambdas and typed
+  capabilities without replacing core `while`.
 - Lowering plan for direct loops as JVM branches and suspendable loops as
   selective continuation/state-machine regions.
 

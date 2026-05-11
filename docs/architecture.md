@@ -537,10 +537,13 @@ while { i < 10 } {
 }
 ```
 
-`while`, `break`, and `continue` are language control forms, but their
-implementation may elaborate to an internal lexical `LoopControl`
-capability/effect so cleanup, cancellation, and selective lowering stay
-consistent. `retry` is a normal standard-library function using trailing lambda
+`while`, `break`, and `continue` are language control forms, not standard
+library functions. Their implementation may elaborate to an internal lexical
+`LoopControl` capability/effect so cleanup, cancellation, and selective
+lowering stay consistent, but the user-facing contract is compiler-known loop
+syntax. Users can still build custom loop-like APIs with tail lambdas and
+effects; those APIs must expose their own typed early-exit protocol if they
+need one. `retry` is a normal standard-library function using trailing lambda
 syntax; it preserves the body effects and re-invokes the body per attempt
 rather than cloning continuations.
 

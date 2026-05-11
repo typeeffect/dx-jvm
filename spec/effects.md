@@ -143,10 +143,14 @@ exceptions or Groovy-style dynamic dispatch.
 
 Loop control policy:
 
-- `while`, `break`, and `continue` are source control forms in the v1 plan.
+- `while`, `break`, and `continue` are source control forms in the v1 plan,
+  not standard-library definitions.
+- The core `while` is compiler-known syntax because loop targets, source spans,
+  direct JVM branch lowering, suspendable-loop state-machine lowering, and
+  cleanup obligations must be specified structurally.
 - The compiler may elaborate loop control to an internal lexical
   `LoopControl` capability/effect, but this is not a public user-defined
-  effect row by default.
+  effect row by default and not the user-facing definition of `while`.
 - `break` and `continue` are not Java exceptions and are not arbitrary
   user-catchable handler operations.
 - `break` exits the nearest enclosing loop; `continue` starts the next
@@ -157,6 +161,18 @@ Loop control policy:
 - Direct loops should lower to JVM branches where no continuation capture is
   needed. Loops containing `await` or non-tail one-shot handlers lower through
   the selective continuation/state-machine path.
+
+Custom loop-like APIs:
+
+- Users can build their own control abstractions with ordinary functions,
+  tail-lambda syntax, lexical capabilities, and typed effects.
+- A custom `repeat`, `until`, `retryWhile`, or domain-specific loop is a
+  library function unless it requires new core control targets.
+- Core `break` and `continue` target only language loops. Library control
+  abstractions that need early exit must expose their own typed capability or
+  result protocol.
+- This keeps the core loop simple and optimizable while still allowing
+  higher-level control APIs to be written in dx.
 
 Retry policy:
 
